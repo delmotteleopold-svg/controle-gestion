@@ -3,48 +3,712 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Mon outil de contrôle de gestion</title>
+<title>Mon budget</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Space+Grotesk:wght@500;600&amp;display=swap">
 <style>
-  body {
-    margin: 0;
-    min-height: 100vh;
-    background: #F2ECE1;
-    color: #1B2430;
-    font-family: system-ui, sans-serif;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 16px;
-    box-sizing: border-box;
-  }
-  .carte {
-    background: #FFFFFF;
-    border-radius: 20px;
-    padding: 28px;
-    max-width: 360px;
-    width: 100%;
-    box-shadow: 0 1px 2px rgba(27, 36, 48, 0.06);
-    text-align: center;
-  }
-  h1 { margin: 0 0 8px; font-size: 26px; letter-spacing: -0.5px; }
-  p { margin: 0; color: #5B6572; font-size: 15px; }
-  .pastille {
-    display: inline-block;
-    margin-top: 16px;
-    padding: 6px 12px;
-    border-radius: 12px;
-    background: #E1F2E8;
-    color: #14573A;
-    font-size: 13px;
-    font-weight: 600;
-  }
+/* style.css : l'apparence de l'appli (mêmes couleurs que la maquette) */
+
+:root {
+  --fond: #F2ECE1;
+  --carte: #FFFFFF;
+  --encre: #1B2430;
+  --discret: #5B6572;
+  --piste: #E7E2DA;
+  --trait: #CFC8BC;
+  --separation: #EFE9DF;
+  --vert: #1E7B4B;
+  --vert-fond: #E1F2E8;
+  --vert-texte: #14573A;
+  --orange: #E0701A;
+  --orange-fond: #FCE9DA;
+  --orange-texte: #8A3F00;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--fond);
+  color: var(--encre);
+  font-family: "Inter", system-ui, -apple-system, sans-serif;
+}
+
+button, input { font-family: inherit; }
+button { cursor: pointer; }
+
+#app {
+  max-width: 430px;
+  margin: 0 auto;
+  padding: 52px 20px 40px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+h1 {
+  margin: 2px 0 0;
+  font-family: "Space Grotesk", "Inter", sans-serif;
+  font-weight: 600;
+  font-size: 30px;
+  letter-spacing: -0.5px;
+}
+
+h2 { margin: 0; font-size: 14px; font-weight: 600; color: var(--discret); }
+
+.mois { font-size: 14px; color: var(--discret); }
+header { margin-bottom: 8px; }
+
+.carte {
+  background: var(--carte);
+  border-radius: 20px;
+  padding: 18px;
+  box-shadow: 0 1px 2px rgba(27, 36, 48, 0.06);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.ligne { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.base { align-items: baseline; }
+
+.pastille {
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 600;
+  background: var(--vert-fond);
+  color: var(--vert-texte);
+}
+.pastille.alerte { background: var(--orange-fond); color: var(--orange-texte); }
+
+.gros {
+  font-family: "Space Grotesk", "Inter", sans-serif;
+  font-weight: 600;
+  font-size: 36px;
+  letter-spacing: -0.5px;
+}
+.gros small { font-family: "Inter", sans-serif; font-weight: 400; font-size: 14px; color: var(--discret); letter-spacing: 0; }
+
+.piste { height: 12px; border-radius: 6px; background: var(--piste); overflow: hidden; }
+.piste.fine { height: 8px; border-radius: 4px; }
+.remplissage { height: 100%; border-radius: inherit; background: var(--vert); }
+.remplissage.alerte { background: var(--orange); }
+
+.discret { font-size: 14px; color: var(--discret); }
+.petit { font-size: 13px; color: var(--discret); }
+.bon { color: var(--vert-texte); font-weight: 600; }
+.mauvais { color: var(--orange-texte); font-weight: 600; }
+
+.categorie { display: flex; flex-direction: column; gap: 6px; }
+.categorie + .categorie { margin-top: 4px; }
+.categorie strong { font-size: 15px; }
+
+/* Saisie */
+.saisie { display: flex; gap: 8px; align-items: center; }
+.saisie input, .champ input {
+  flex: 1;
+  min-width: 0;
+  height: 48px;
+  padding: 0 16px;
+  border-radius: 24px;
+  border: 1px solid var(--trait);
+  background: #fff;
+  color: var(--encre);
+  font-size: 16px;
+}
+.rond {
+  flex: none;
+  width: 48px;
+  height: 48px;
+  border-radius: 24px;
+  border: none;
+  background: var(--encre);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.micro {
+  width: 88px;
+  height: 88px;
+  border-radius: 44px;
+  border: none;
+  background: var(--vert);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 8px 20px rgba(30, 123, 75, 0.28);
+  align-self: center;
+}
+.micro.ecoute { background: var(--orange); box-shadow: 0 8px 20px rgba(224, 112, 26, 0.3); }
+.micro[disabled] { background: var(--piste); color: var(--discret); box-shadow: none; cursor: default; }
+.centre { text-align: center; }
+
+.lien {
+  align-self: flex-start;
+  height: 40px;
+  padding: 0 4px;
+  border: none;
+  background: transparent;
+  color: var(--encre);
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: underline;
+}
+
+.champ { display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: var(--discret); }
+.champ input { flex: none; width: 100%; }
+
+.puces { display: flex; flex-wrap: wrap; gap: 8px; }
+.puce {
+  height: 40px;
+  padding: 0 14px;
+  border-radius: 20px;
+  border: 1px solid var(--trait);
+  background: #fff;
+  color: var(--encre);
+  font-size: 14px;
+  font-weight: 500;
+}
+.puce[aria-pressed="true"] { background: var(--encre); border-color: var(--encre); color: #fff; font-weight: 600; }
+
+.bouton {
+  height: 56px;
+  border-radius: 28px;
+  border: none;
+  background: var(--encre);
+  color: #fff;
+  font-size: 16px;
+  font-weight: 600;
+}
+.bouton.clair { background: #fff; color: var(--encre); border: 1.5px solid var(--encre); height: 48px; font-size: 15px; border-radius: 24px; }
+
+.consequence { padding-top: 12px; border-top: 1px solid var(--separation); display: flex; flex-direction: column; gap: 2px; }
+
+/* Indicateurs */
+.grille { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.grille .carte { padding: 16px; gap: 4px; }
+.grille h3 { margin: 0; font-size: 13px; font-weight: 600; color: var(--discret); }
+.chiffre { font-family: "Space Grotesk", "Inter", sans-serif; font-weight: 600; font-size: 26px; letter-spacing: -0.5px; }
+
+/* Dernières dépenses */
+.depense { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 10px 0; }
+.depense + .depense { border-top: 1px solid var(--separation); }
+.depense .nom { font-size: 15px; font-weight: 600; }
+.montant { font-family: "Space Grotesk", "Inter", sans-serif; font-weight: 600; font-size: 16px; }
+.supprimer { border: none; background: transparent; color: var(--discret); font-size: 13px; text-decoration: underline; height: 36px; padding: 0 6px; }
+
+details summary { cursor: pointer; font-size: 14px; font-weight: 600; color: var(--discret); }
+.budgets { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; }
+
+.message { font-size: 14px; color: var(--orange-texte); font-weight: 600; }
+.confirmation { font-size: 14px; color: var(--vert-texte); font-weight: 600; text-align: center; }
 </style>
 </head>
 <body>
-  <main class="carte">
-    <h1>Mon outil de contrôle de gestion</h1>
-    <p>Étape 1 : la première page s'affiche dans le navigateur.</p>
-    <span class="pastille">Environnement prêt</span>
-  </main>
+<main id="app"></main>
+<script>
+// calc.js : tout le calcul de l'appli, sans rien afficher à l'écran.
+// Convention de signe : un écart POSITIF est toujours bon (il me reste de la marge),
+// un écart NÉGATIF veut dire que je dépasse mon budget.
+
+const CATEGORIES = ["Courses", "Transport", "Loisirs", "Autres"];
+const DEFAULT_BUDGETS = { Courses: 120, Transport: 40, Loisirs: 100, Autres: 40 };
+
+// Mots-clés qui permettent de deviner la catégorie (écrits sans accents).
+const KEYWORDS = {
+  Courses: ["courses", "supermarche", "carrefour", "lidl", "auchan", "leclerc", "intermarche", "monoprix", "boulangerie", "epicerie", "nourriture"],
+  Transport: ["bus", "tram", "metro", "train", "sncf", "essence", "carburant", "uber", "taxi", "trottinette", "navigo", "parking"],
+  Loisirs: ["cine", "cinema", "resto", "restos", "restaurant", "bar", "kebab", "cafe", "soiree", "sortie", "netflix", "spotify", "concert", "jeu", "burger", "pizza"],
+};
+
+const WEEKDAYS = ["dimanche", "lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi"];
+const IGNORED_WORDS = ["de", "du", "des", "pour", "en", "au", "aux", "le", "la", "les", "un", "une", "j'ai", "depense", "euro", "euros", "eur", "hier", "avant-hier", "aujourd'hui", "aujourdhui", "ce", "matin", "soir", "et", "a"];
+
+function pad(n) {
+  return String(n).padStart(2, "0");
+}
+
+function toIso(date) {
+  return date.getFullYear() + "-" + pad(date.getMonth() + 1) + "-" + pad(date.getDate());
+}
+
+function fromIso(text) {
+  const [y, m, d] = text.split("-").map(Number);
+  return new Date(y, m - 1, d);
+}
+
+// Met en minuscules et enlève les accents, pour comparer des mots facilement.
+function normalize(text) {
+  return text
+    .toLowerCase()
+    .replace(/[’‘]/g, "'")
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "");
+}
+
+// Lit une phrase comme « 12 euros courses hier » et en tire le montant, la catégorie et la date.
+function parseExpense(text, today = new Date()) {
+  const clean = normalize(text);
+
+  // 1. Le montant
+  let amount = null;
+  let match = clean.match(/(\d+)\s*(?:€|euros?|eur)\s*(\d{1,2})\b/); // « 12 euros 50 »
+  if (match) {
+    amount = Number(match[1]) + Number(match[2]) / (match[2].length === 1 ? 10 : 100);
+  } else {
+    match = clean.match(/(\d+(?:[.,]\d{1,2})?)\s*(?:€|euros?|eur)/); // « 12,5 € »
+    if (!match) match = clean.match(/(\d+(?:[.,]\d{1,2})?)/); // à défaut, le premier nombre
+    if (match) amount = parseFloat(match[1].replace(",", "."));
+  }
+
+  // 2. La catégorie (« Autres » si aucun mot-clé ne correspond)
+  const words = clean.split(/[^a-z0-9']+/);
+  let category = "Autres";
+  for (const name of Object.keys(KEYWORDS)) {
+    if (words.some((word) => KEYWORDS[name].includes(word))) {
+      category = name;
+      break;
+    }
+  }
+
+  // 3. La date (aujourd'hui par défaut)
+  let daysBack = 0;
+  if (/avant[- ]hier/.test(clean)) {
+    daysBack = 2;
+  } else if (/\bhier\b/.test(clean)) {
+    daysBack = 1;
+  } else {
+    const dayName = WEEKDAYS.find((name) => words.includes(name));
+    if (dayName) daysBack = (today.getDay() - WEEKDAYS.indexOf(dayName) + 7) % 7;
+  }
+  const date = new Date(today.getFullYear(), today.getMonth(), today.getDate() - daysBack);
+
+  // 4. Une courte description : les mots de la phrase qui ne sont ni un nombre, ni une date, ni un mot vide
+  const skip = new Set([...IGNORED_WORDS, ...WEEKDAYS]);
+  const note = text
+    .split(/\s+/)
+    .filter((word) => {
+      const w = normalize(word).replace(/[^a-z0-9'-]/g, "");
+      return w && !/^\d/.test(w) && !skip.has(w) && w !== "€";
+    })
+    .join(" ");
+
+  return {
+    amount,
+    category,
+    date: toIso(date),
+    note: note.charAt(0).toUpperCase() + note.slice(1),
+  };
+}
+
+function sum(numbers) {
+  return numbers.reduce((total, n) => total + n, 0);
+}
+
+// Calcule tous les indicateurs du mois en cours.
+function indicators(budgets, expenses, today = new Date()) {
+  const monthKey = today.getFullYear() + "-" + pad(today.getMonth() + 1);
+  const month = expenses.filter((e) => e.date.slice(0, 7) === monthKey && e.date <= toIso(today));
+  const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
+  const day = today.getDate();
+  const daysLeft = daysInMonth - day + 1; // aujourd'hui compris
+
+  const budget = sum(CATEGORIES.map((c) => budgets[c] || 0));
+  const spent = sum(month.map((e) => e.amount));
+  const rest = budget - spent;
+  const averagePerDay = spent / day;
+  const projection = averagePerDay * daysInMonth;
+
+  const categories = CATEGORIES.map((name) => {
+    const categorySpent = sum(month.filter((e) => e.category === name).map((e) => e.amount));
+    const categoryBudget = budgets[name] || 0;
+    return {
+      name,
+      spent: categorySpent,
+      budget: categoryBudget,
+      gap: categoryBudget - categorySpent,
+      percent: categoryBudget > 0 ? (categorySpent / categoryBudget) * 100 : 0,
+    };
+  });
+
+  const daysWithSpending = new Set(month.map((e) => e.date)).size;
+  const topCategory = spent > 0 ? categories.reduce((a, b) => (b.spent > a.spent ? b : a)) : null;
+
+  return {
+    budget,
+    spent,
+    rest,
+    daysInMonth,
+    day,
+    daysLeft,
+    averagePerDay,
+    restPerDay: rest / daysLeft,
+    budgetPerDay: budget / daysInMonth,
+    projection,
+    margin: budget - projection,
+    onTrack: projection <= budget,
+    percentBudget: budget > 0 ? (spent / budget) * 100 : 0,
+    percentMonth: (day / daysInMonth) * 100,
+    daysWithoutSpending: day - daysWithSpending,
+    daysAffordable: averagePerDay > 0 ? rest / averagePerDay : null,
+    topCategory: topCategory ? { name: topCategory.name, share: (topCategory.spent / spent) * 100 } : null,
+    categories,
+  };
+}
+
+const CG = { CATEGORIES, DEFAULT_BUDGETS, parseExpense, indicators, toIso, fromIso };
+if (typeof module !== "undefined") module.exports = CG;
+
+// app.js : ce qui s'affiche à l'écran, et ce qui se passe quand je touche un bouton.
+// Le calcul est dans calc.js (objet CG) ; ici on ne fait qu'afficher et enregistrer.
+
+const STORE = { budgets: "cg.budgets", expenses: "cg.expenses" };
+
+// Les données sont gardées dans le navigateur (localStorage). Si c'est bloqué, l'appli marche quand même.
+function read(key, fallback) {
+  try {
+    const value = localStorage.getItem(key);
+    return value ? JSON.parse(value) : fallback;
+  } catch (error) {
+    return fallback;
+  }
+}
+
+function write(key, value) {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch (error) {
+    /* pas de sauvegarde possible : on continue sans */
+  }
+}
+
+const state = {
+  budgets: Object.assign({}, CG.DEFAULT_BUDGETS, read(STORE.budgets, {})),
+  expenses: read(STORE.expenses, []),
+  sentence: "",
+  draft: null, // la dépense en cours de validation
+  message: "",
+  confirmation: "",
+  listening: false,
+};
+
+const app = document.getElementById("app");
+const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+/* ---------- Petits outils d'affichage ---------- */
+
+function esc(text) {
+  return String(text).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+
+function euros(n) {
+  const rounded = Math.round(n * 100) / 100;
+  const text = Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(2);
+  return text.replace(".", ",") + " €";
+}
+
+function signed(n) {
+  const rounded = Math.round(n * 100) / 100;
+  return (rounded >= 0 ? "+" : "−") + euros(Math.abs(rounded));
+}
+
+function dayLabel(iso, today) {
+  const diff = Math.round((CG.fromIso(CG.toIso(today)) - CG.fromIso(iso)) / 86400000);
+  if (diff === 0) return "aujourd'hui";
+  if (diff === 1) return "hier";
+  return new Intl.DateTimeFormat("fr-FR", { weekday: "long", day: "numeric", month: "long" }).format(CG.fromIso(iso));
+}
+
+/* ---------- Les blocs de l'écran ---------- */
+
+function headerBlock(today) {
+  const month = new Intl.DateTimeFormat("fr-FR", { month: "long", year: "numeric" }).format(today);
+  return `<header><div class="mois">${esc(month.charAt(0).toUpperCase() + month.slice(1))}</div><h1>Budget</h1></header>`;
+}
+
+function summaryBlock(k) {
+  const status = k.onTrack ? `<span class="pastille">Dans le budget</span>` : `<span class="pastille alerte">Au-dessus du budget</span>`;
+  const width = Math.min(100, Math.round(k.percentBudget));
+  return `
+  <section class="carte">
+    <div class="ligne"><h2>Dépensé ce mois-ci</h2>${status}</div>
+    <div class="gros">${euros(k.spent)} <small>sur ${euros(k.budget)}</small></div>
+    <div class="piste" role="img" aria-label="${Math.round(k.percentBudget)} % du budget du mois dépensé">
+      <div class="remplissage ${k.onTrack ? "" : "alerte"}" style="width:${width}%"></div>
+    </div>
+    <div class="discret">Écart ${signed(k.rest)} · reste ${euros(Math.max(0, k.restPerDay))} par jour</div>
+  </section>`;
+}
+
+function categoriesBlock(k) {
+  const rows = k.categories
+    .map((c) => {
+      const over = c.gap < 0;
+      return `
+      <div class="categorie">
+        <div class="ligne base"><strong>${esc(c.name)}</strong><span class="${over ? "mauvais" : "bon"}">${signed(c.gap)}</span></div>
+        <div class="piste fine" role="img" aria-label="${Math.round(c.percent)} % du budget ${esc(c.name)} dépensé">
+          <div class="remplissage ${over ? "alerte" : ""}" style="width:${Math.min(100, Math.round(c.percent))}%"></div>
+        </div>
+        <div class="petit">${euros(c.spent)} dépensés sur ${euros(c.budget)}</div>
+      </div>`;
+    })
+    .join("");
+  return `<section class="carte"><h2>Par catégorie</h2>${rows}</section>`;
+}
+
+const micIcon = `<svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"></rect><path d="M5 11a7 7 0 0 0 14 0M12 18v3"></path></svg>`;
+const arrowIcon = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"></path></svg>`;
+
+function addBlock() {
+  const micButton = Recognition
+    ? `<button type="button" class="micro ${state.listening ? "ecoute" : ""}" data-action="voice" aria-label="Appuyer pour dicter une dépense">${micIcon}</button>
+       <div class="centre"><strong>${state.listening ? "Je t'écoute…" : "Appuie et parle"}</strong><div class="petit">Par exemple : « 12 euros courses hier »</div></div>`
+    : `<div class="petit centre">Le micro n'est pas disponible dans ce navigateur. Utilise le micro du clavier de ton téléphone, ou écris ta dépense ci-dessous.</div>`;
+  return `
+  <section class="carte">
+    <h2>Ajouter une dépense</h2>
+    ${micButton}
+    <div class="saisie">
+      <input id="sentence" type="text" aria-label="Ta dépense en une phrase" placeholder="12 € courses hier" value="${esc(state.sentence)}" autocomplete="off">
+      <button type="button" class="rond" data-action="read" aria-label="Lire ma phrase">${arrowIcon}</button>
+    </div>
+    ${state.message ? `<div class="message">${esc(state.message)}</div>` : ""}
+    <button type="button" class="lien" data-action="manual">Tout remplir à la main</button>
+  </section>`;
+}
+
+function draftBlock(k, today) {
+  const d = state.draft;
+  if (!d) return state.confirmation ? `<div class="confirmation">${esc(state.confirmation)}</div>` : "";
+  const chips = CG.CATEGORIES.map((name) => `<button type="button" class="puce" data-action="cat" data-cat="${name}" aria-pressed="${d.category === name}">${name}</button>`).join("");
+  const amount = parseFloat(String(d.amount).replace(",", "."));
+  let consequence = "";
+  if (amount > 0) {
+    const after = k.spent + amount;
+    const categorySpent = k.categories.find((c) => c.name === d.category);
+    const inBudget = after <= k.budget;
+    consequence = `
+      <div class="consequence">
+        <div class="${inBudget ? "bon" : "mauvais"}">Avec cette dépense : ${euros(after)} sur ${euros(k.budget)}${inBudget ? ", toujours dans le budget." : ", au-dessus du budget."}</div>
+        <div class="petit">${esc(d.category)} : ${euros(categorySpent.spent + amount)} sur ${euros(categorySpent.budget)}.</div>
+      </div>`;
+  }
+  return `
+  <section class="carte">
+    <h2>Vérifie ta dépense</h2>
+    <label class="champ">Montant en €<input id="d-amount" type="text" inputmode="decimal" value="${esc(d.amount)}" placeholder="12,00"></label>
+    <div class="puces" role="group" aria-label="Catégorie">${chips}</div>
+    <label class="champ">Date<input id="d-date" type="date" max="${CG.toIso(today)}" value="${esc(d.date)}"></label>
+    <label class="champ">Note (facultatif)<input id="d-note" type="text" value="${esc(d.note)}" placeholder="Supermarché"></label>
+    ${consequence}
+    <button type="button" class="bouton" data-action="save">Enregistrer</button>
+    <button type="button" class="lien" data-action="cancel">Annuler</button>
+  </section>`;
+}
+
+function indicatorsBlock(k) {
+  const diff = k.budgetPerDay - k.averagePerDay;
+  return `
+  <h2 style="margin: 4px 0 -2px 4px">Indicateurs du mois</h2>
+  <div class="grille">
+    <section class="carte"><h3>Moyenne par jour</h3><div class="chiffre">${euros(k.averagePerDay)}</div>
+      <div class="petit ${diff >= 0 ? "bon" : "mauvais"}">${euros(Math.abs(diff))} ${diff >= 0 ? "sous" : "au-dessus de"} ton budget par jour</div></section>
+    <section class="carte"><h3>Projection fin de mois</h3><div class="chiffre">${euros(k.projection)}</div>
+      <div class="petit ${k.onTrack ? "bon" : "mauvais"}">${euros(Math.abs(k.margin))} ${k.onTrack ? "sous" : "au-dessus de"} les ${euros(k.budget)} prévus</div></section>
+    <section class="carte"><h3>Budget utilisé</h3><div class="chiffre">${Math.round(k.percentBudget)} %</div>
+      <div class="petit ${k.percentBudget <= k.percentMonth ? "bon" : "mauvais"}">pour ${Math.round(k.percentMonth)} % du mois écoulé</div></section>
+    <section class="carte"><h3>Jours sans dépense</h3><div class="chiffre">${k.daysWithoutSpending}</div>
+      <div class="petit">sur ${k.day} jours</div></section>
+  </div>`;
+}
+
+function lastExpensesBlock(today) {
+  const last = [...state.expenses].sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : b.id - a.id)).slice(0, 5);
+  const rows = last.length
+    ? last
+        .map(
+          (e) => `
+      <div class="depense">
+        <div><div class="nom">${esc(e.note || e.category)}</div><div class="petit">${esc(e.category)} · ${esc(dayLabel(e.date, today))}</div></div>
+        <div class="ligne"><span class="montant">${euros(e.amount)}</span><button type="button" class="supprimer" data-action="delete" data-id="${e.id}" aria-label="Supprimer cette dépense">Supprimer</button></div>
+      </div>`
+        )
+        .join("")
+    : `<div class="petit">Aucune dépense pour l'instant.</div>`;
+  return `<section class="carte"><h2>Dernières dépenses</h2>${rows}</section>`;
+}
+
+function settingsBlock() {
+  const fields = CG.CATEGORIES.map((name) => `<label class="champ">${name} (budget du mois, en €)<input type="text" inputmode="decimal" data-budget="${name}" value="${state.budgets[name]}"></label>`).join("");
+  return `
+  <section class="carte">
+    <details ${state.settingsOpen ? "open" : ""}><summary>Mes budgets</summary><div class="budgets">${fields}</div></details>
+  </section>
+  <button type="button" class="bouton clair" data-action="export">Exporter mes données (sauvegarde)</button>`;
+}
+
+function render() {
+  const today = new Date();
+  const k = CG.indicators(state.budgets, state.expenses, today);
+  app.innerHTML = [headerBlock(today), summaryBlock(k), categoriesBlock(k), addBlock(), draftBlock(k, today), indicatorsBlock(k), lastExpensesBlock(today), settingsBlock()].join("");
+}
+
+/* ---------- Ce qui se passe quand je touche un bouton ---------- */
+
+function startDraft(parsed) {
+  state.draft = {
+    amount: parsed && parsed.amount != null ? String(parsed.amount).replace(".", ",") : "",
+    category: parsed ? parsed.category : "Autres",
+    date: parsed ? parsed.date : CG.toIso(new Date()),
+    note: parsed ? parsed.note : "",
+  };
+}
+
+function readSentence() {
+  state.confirmation = "";
+  if (!state.sentence.trim()) {
+    state.message = "Écris ou dicte une dépense, par exemple : 12 euros courses hier.";
+    render();
+    return;
+  }
+  const parsed = CG.parseExpense(state.sentence);
+  startDraft(parsed);
+  state.message = parsed.amount == null ? "Je n'ai pas trouvé le montant, complète-le ci-dessous." : "";
+  render();
+}
+
+// Recopie ce qui est tapé dans les champs de vérification avant de redessiner l'écran.
+function syncDraft() {
+  if (!state.draft) return;
+  const amount = document.getElementById("d-amount");
+  const date = document.getElementById("d-date");
+  const note = document.getElementById("d-note");
+  if (amount) state.draft.amount = amount.value;
+  if (date) state.draft.date = date.value;
+  if (note) state.draft.note = note.value;
+}
+
+function startVoice() {
+  if (!Recognition || state.listening) return;
+  const recognition = new Recognition();
+  recognition.lang = "fr-FR";
+  recognition.interimResults = false;
+  recognition.onresult = (event) => {
+    state.sentence = event.results[0][0].transcript;
+    readSentence();
+  };
+  recognition.onerror = () => {
+    state.message = "La dictée n'a pas marché. Écris ta dépense à la place.";
+  };
+  recognition.onend = () => {
+    state.listening = false;
+    render();
+  };
+  try {
+    recognition.start();
+    state.listening = true;
+    state.message = "";
+    render();
+  } catch (error) {
+    state.message = "La dictée n'a pas marché. Écris ta dépense à la place.";
+    render();
+  }
+}
+
+function saveExpense() {
+  syncDraft();
+  const amount = parseFloat(String(state.draft.amount).replace(",", "."));
+  if (!(amount > 0)) {
+    state.message = "Entre un montant supérieur à 0.";
+    render();
+    return;
+  }
+  if (!state.draft.date) {
+    state.message = "Choisis une date.";
+    render();
+    return;
+  }
+  state.expenses.push({
+    id: Date.now(),
+    amount: Math.round(amount * 100) / 100,
+    category: state.draft.category,
+    date: state.draft.date,
+    note: state.draft.note.trim(),
+  });
+  write(STORE.expenses, state.expenses);
+  state.draft = null;
+  state.sentence = "";
+  state.message = "";
+  state.confirmation = "Dépense enregistrée.";
+  render();
+}
+
+function exportData() {
+  const data = JSON.stringify({ budgets: state.budgets, expenses: state.expenses }, null, 2);
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(new Blob([data], { type: "application/json" }));
+  link.download = "mes-depenses-" + CG.toIso(new Date()) + ".json";
+  link.click();
+}
+
+app.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-action]");
+  if (!button) return;
+  const action = button.dataset.action;
+  if (action === "voice") startVoice();
+  else if (action === "read") readSentence();
+  else if (action === "manual") {
+    state.confirmation = "";
+    state.message = "";
+    startDraft(null);
+    render();
+  } else if (action === "cat") {
+    syncDraft();
+    state.draft.category = button.dataset.cat;
+    render();
+  } else if (action === "save") saveExpense();
+  else if (action === "cancel") {
+    state.draft = null;
+    state.message = "";
+    render();
+  } else if (action === "delete") {
+    if (window.confirm("Supprimer cette dépense ?")) {
+      state.expenses = state.expenses.filter((e) => String(e.id) !== button.dataset.id);
+      write(STORE.expenses, state.expenses);
+      render();
+    }
+  } else if (action === "export") exportData();
+});
+
+app.addEventListener("input", (event) => {
+  if (event.target.id === "sentence") state.sentence = event.target.value;
+});
+
+app.addEventListener("keydown", (event) => {
+  if (event.key === "Enter" && event.target.id === "sentence") readSentence();
+});
+
+// Garde la section « Mes budgets » ouverte quand l'écran est redessiné.
+app.addEventListener("toggle", (event) => {
+  if (event.target.tagName === "DETAILS") state.settingsOpen = event.target.open;
+}, true);
+
+app.addEventListener("change", (event) => {
+  const name = event.target.dataset.budget;
+  if (!name) return;
+  const value = parseFloat(event.target.value.replace(",", "."));
+  if (value >= 0) {
+    state.budgets[name] = value;
+    write(STORE.budgets, state.budgets);
+  }
+  render();
+});
+
+render();
+</script>
 </body>
 </html>
