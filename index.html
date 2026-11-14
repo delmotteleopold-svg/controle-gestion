@@ -205,6 +205,83 @@ details summary { cursor: pointer; font-size: 14px; font-weight: 600; color: var
 
 .message { font-size: 14px; color: var(--orange-texte); font-weight: 600; }
 .confirmation { font-size: 14px; color: var(--vert-texte); font-weight: 600; text-align: center; }
+
+/* ---------- Onglet Révision et barre d'onglets ---------- */
+
+#app { padding-bottom: 120px; }
+
+.ligne-bague { flex-direction: row; align-items: center; gap: 18px; }
+.bague { position: relative; width: 112px; height: 112px; flex: none; }
+.bague-texte {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: "Space Grotesk", "Inter", sans-serif;
+  font-weight: 600;
+  font-size: 22px;
+}
+.bague-infos { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.gros-moyen { font-family: "Space Grotesk", "Inter", sans-serif; font-weight: 600; font-size: 34px; letter-spacing: -0.5px; }
+
+.barres { position: relative; height: 120px; display: flex; align-items: flex-end; justify-content: space-between; }
+.repere { position: absolute; left: 0; right: 0; border-top: 2px dashed #8C8478; }
+.colonne { width: 40px; display: flex; justify-content: center; }
+.colonne > div { width: 28px; }
+.jours { display: flex; justify-content: space-between; font-size: 12px; color: var(--discret); }
+.jours span { width: 40px; text-align: center; }
+.jours .auj { font-weight: 600; color: var(--encre); }
+
+.puces.centree { justify-content: center; }
+.duree { display: flex; align-items: center; justify-content: space-between; }
+.rond.clair { background: #fff; color: var(--encre); border: 1px solid var(--trait); }
+
+.piste.repere-but { position: relative; overflow: visible; }
+.but { position: absolute; top: -3px; width: 2px; height: 14px; border-radius: 1px; background: var(--encre); }
+
+.colonne-droite { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
+.separe { padding-top: 12px; border-top: 1px solid var(--separation); }
+.avec-icone { display: flex; align-items: center; justify-content: center; gap: 10px; }
+.reglage { align-items: flex-end; }
+
+.carte .consequence .puces,
+.carte .consequence .champ,
+.carte .consequence .bouton,
+.carte .consequence .message { margin-top: 10px; }
+
+.barre {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 22px;
+  width: calc(100% - 32px);
+  max-width: 398px;
+  background: #fff;
+  border: 1px solid var(--piste);
+  border-radius: 36px;
+  padding: 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 10px 28px rgba(27, 36, 48, 0.12);
+  z-index: 10;
+}
+.onglet {
+  width: 48px;
+  height: 48px;
+  border: none;
+  border-radius: 24px;
+  background: transparent;
+  color: var(--discret);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 600;
+}
+.onglet.actif { width: auto; padding: 0 18px 0 14px; background: var(--vert-fond); color: var(--vert-texte); }
 </style>
 </head>
 <body>
@@ -359,13 +436,424 @@ function indicators(budgets, expenses, today = new Date()) {
   };
 }
 
-const CG = { CATEGORIES, DEFAULT_BUDGETS, parseExpense, indicators, toIso, fromIso };
+/* ---------- Révision ---------- */
+
+// Réglages de départ : un minimum par jour et un temps prévu par cours sur 7 jours (en minutes).
+const DEFAULT_REVISION = {
+  dailyMin: 90,
+  courses: [
+    { name: "Contrôle de gestion", goal: 180 },
+    { name: "Droit", goal: 150 },
+    { name: "Anglais", goal: 120 },
+    { name: "Marketing", goal: 120 },
+    { name: "Statistiques", goal: 120 },
+  ],
+  sessions: [], // { id, course, minutes, date }
+  exams: [], // { id, course, date }
+};
+
+function addDays(date, n) {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate() + n);
+}
+
+// 65 -> « 1 h 05 », 90 -> « 1 h 30 », 45 -> « 45 min », 120 -> « 2 h »
+function duration(minutes) {
+  const total = Math.round(minutes);
+  const hours = Math.floor(total / 60);
+  const rest = total % 60;
+  if (hours === 0) return rest + " min";
+  if (rest === 0) return hours + " h";
+  return hours + " h " + pad(rest);
+}
+
+// Calcule tous les indicateurs de révision à partir des sessions notées.
+function revisionIndicators(data, today = new Date()) {
+  const todayIso = toIso(today);
+  const minutesOn = (iso) => sum(data.sessions.filter((s) => s.date === iso).map((s) => s.minutes));
+  const dailyMin = data.dailyMin;
+  const todayMinutes = minutesOn(todayIso);
+
+  // Les 7 derniers jours, aujourd'hui compris
+  const days = [];
+  for (let i = 6; i >= 0; i--) {
+    const date = addDays(today, -i);
+    const minutes = minutesOn(toIso(date));
+    days.push({ iso: toIso(date), weekday: date.getDay(), minutes, reached: minutes >= dailyMin, isToday: i === 0 });
+  }
+  const finishedDays = days.filter((d) => !d.isToday);
+  const average7 = sum(days.map((d) => d.minutes)) / 7;
+  const daysReached = finishedDays.filter((d) => d.reached).length;
+
+  // Série : jours de suite où le minimum est atteint. Aujourd'hui compte seulement s'il est déjà atteint.
+  let streak = days[6].reached ? 1 : 0;
+  for (let i = 1; i < 3650 && minutesOn(toIso(addDays(today, -i))) >= dailyMin; i++) streak++;
+
+  // Par cours, sur les 7 derniers jours
+  const weekStart = days[0].iso;
+  const week = data.sessions.filter((s) => s.date >= weekStart && s.date <= todayIso);
+  const weekTotal = sum(week.map((s) => s.minutes));
+  const courses = data.courses.map((course) => {
+    const done = sum(week.filter((s) => s.course === course.name).map((s) => s.minutes));
+    return {
+      name: course.name,
+      done,
+      goal: course.goal,
+      gap: done - course.goal, // positif = j'ai fait plus que prévu
+      delay: Math.max(0, course.goal - done),
+      share: weekTotal > 0 ? (done / weekTotal) * 100 : 0,
+    };
+  });
+  const byName = Object.fromEntries(courses.map((c) => [c.name, c]));
+
+  // DS à venir : classés par date la plus proche, puis par retard le plus grand
+  const exams = data.exams
+    .filter((e) => e.date >= todayIso)
+    .map((e) => {
+      const delay = byName[e.course] ? byName[e.course].delay : 0;
+      const daysLeft = Math.round((fromIso(e.date) - fromIso(todayIso)) / 86400000);
+      return { id: e.id, course: e.course, date: e.date, daysLeft, delay, perDay: delay / Math.max(1, daysLeft) };
+    })
+    .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : b.delay - a.delay));
+
+  return {
+    dailyMin,
+    todayMinutes,
+    percentToday: dailyMin > 0 ? (todayMinutes / dailyMin) * 100 : 0,
+    remainingToday: Math.max(0, dailyMin - todayMinutes),
+    days,
+    average7,
+    daysReached,
+    daysFinished: finishedDays.length,
+    streak,
+    weekStart,
+    weekTotal,
+    courses,
+    exams,
+  };
+}
+
+const CG = { CATEGORIES, DEFAULT_BUDGETS, DEFAULT_REVISION, parseExpense, indicators, revisionIndicators, duration, addDays, toIso, fromIso };
 if (typeof module !== "undefined") module.exports = CG;
+
+// revision.js : l'onglet Révision (ce qui s'affiche et ce que font les boutons).
+// Le calcul est dans calc.js ; les outils communs (state, esc, read, write, render) sont dans app.js.
+
+const QUICK_MINUTES = [15, 30, 45, 60, 90];
+const WEEKDAY_SHORT = ["Dim", "Lun", "Mar", "Mer", "Jeu", "Ven", "Sam"];
+
+function loadRevision() {
+  const fresh = JSON.parse(JSON.stringify(CG.DEFAULT_REVISION));
+  return Object.assign(fresh, read(STORE.revision, {}));
+}
+
+function saveRevision() {
+  write(STORE.revision, state.revision);
+}
+
+function longDate(iso) {
+  const text = new Intl.DateTimeFormat("fr-FR", { weekday: "long", day: "numeric", month: "long" }).format(CG.fromIso(iso));
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
+function inDays(n) {
+  return n === 0 ? "aujourd'hui" : n === 1 ? "demain" : "dans " + n + " jours";
+}
+
+function signedDuration(minutes) {
+  if (minutes === 0) return "atteint";
+  return (minutes > 0 ? "+" : "−") + CG.duration(Math.abs(minutes));
+}
+
+// Prépare le formulaire « Noter ma session » et celui « Ajouter un DS » s'ils n'existent pas encore.
+function ensureForms(today) {
+  const first = state.revision.courses.length ? state.revision.courses[0].name : "";
+  if (!state.log) state.log = { course: first, minutes: 30, date: CG.toIso(today) };
+  if (!state.examDraft) state.examDraft = { course: first, date: "" };
+  const names = state.revision.courses.map((c) => c.name);
+  if (!names.includes(state.log.course)) state.log.course = first;
+  if (!names.includes(state.examDraft.course)) state.examDraft.course = first;
+}
+
+/* ---------- Les blocs de l'écran ---------- */
+
+function revisionView(today) {
+  const data = state.revision;
+  const k = CG.revisionIndicators(data, today);
+  ensureForms(today);
+  return [revisionHeader(today), todayBlock(k), weekBlock(k), logBlock(k, today), coursesBlock(k), examsBlock(k, today), revisionSettings(data)].join("");
+}
+
+function revisionHeader(today) {
+  return `<header><div class="mois">${esc(longDate(CG.toIso(today)))}</div><h1>Révision</h1></header>`;
+}
+
+function todayBlock(k) {
+  const percent = Math.round(k.percentToday);
+  const dash = (Math.min(100, k.percentToday) / 100) * 289.03;
+  const pill = k.remainingToday === 0 ? "Objectif atteint" : "Encore " + CG.duration(k.remainingToday);
+  return `
+  <section class="carte ligne-bague">
+    <div class="bague" role="img" aria-label="${percent} % du temps de révision minimum atteint aujourd'hui">
+      <svg width="112" height="112" viewBox="0 0 112 112" aria-hidden="true">
+        <circle cx="56" cy="56" r="46" fill="none" stroke="#E7E2DA" stroke-width="12"></circle>
+        ${dash > 0 ? `<circle cx="56" cy="56" r="46" fill="none" stroke="#1E7B4B" stroke-width="12" stroke-linecap="round" stroke-dasharray="${dash.toFixed(1)} 289.03" transform="rotate(-90 56 56)"></circle>` : ""}
+      </svg>
+      <div class="bague-texte">${percent} %</div>
+    </div>
+    <div class="bague-infos">
+      <h2>Aujourd'hui</h2>
+      <div class="gros-moyen">${CG.duration(k.todayMinutes)}</div>
+      <div class="discret">Minimum ${CG.duration(k.dailyMin)} par jour</div>
+      <span class="pastille" style="align-self:flex-start">${pill}</span>
+    </div>
+  </section>`;
+}
+
+function weekBlock(k) {
+  const scale = 0.8; // pixels par minute
+  const line = Math.min(112, k.dailyMin * scale);
+  const bars = k.days
+    .map((d) => {
+      let style;
+      if (d.minutes === 0) style = "height:3px;border-radius:2px;background:var(--piste)";
+      else {
+        const height = Math.max(6, Math.min(112, d.minutes * scale));
+        if (d.isToday) style = `height:${height}px;border-radius:10px 10px 4px 4px;background:var(--vert-fond);border:2px solid var(--vert)`;
+        else style = `height:${height}px;border-radius:10px 10px 4px 4px;background:${d.reached ? "var(--vert)" : "var(--orange)"}`;
+      }
+      return `<div class="colonne"><div style="${style}"></div></div>`;
+    })
+    .join("");
+  const labels = k.days.map((d) => `<span class="${d.isToday ? "auj" : ""}">${WEEKDAY_SHORT[d.weekday]}</span>`).join("");
+  const spoken = k.days.map((d) => `${WEEKDAY_SHORT[d.weekday]} ${CG.duration(d.minutes)}`).join(", ");
+  const streakText = k.streak > 0 ? `Série en cours : ${k.streak} jour${k.streak > 1 ? "s" : ""} de suite.` : "Pas de série en cours.";
+  return `
+  <section class="carte">
+    <div class="ligne base"><h2>7 derniers jours</h2><span class="petit">Moyenne ${CG.duration(k.average7)}</span></div>
+    <div class="barres" role="img" aria-label="Temps de révision des 7 derniers jours : ${spoken}. Minimum : ${CG.duration(k.dailyMin)}.">
+      <div class="repere" style="bottom:${line}px"></div>${bars}
+    </div>
+    <div class="jours" aria-hidden="true">${labels}</div>
+    <div class="petit">La ligne pointillée marque ton minimum de ${CG.duration(k.dailyMin)}. Aujourd'hui (contour) n'est pas encore fini. ${k.daysReached} jour${k.daysReached > 1 ? "s" : ""} réussi${k.daysReached > 1 ? "s" : ""} sur ${k.daysFinished}. ${streakText}</div>
+  </section>`;
+}
+
+function logBlock(k, today) {
+  const data = state.revision;
+  const log = state.log;
+  if (!data.courses.length) {
+    return `<section class="carte"><h2>Noter ma session</h2><div class="petit">Ajoute d'abord un cours dans « Mes cours et objectifs » en bas de la page.</div></section>`;
+  }
+  const chips = data.courses.map((c) => `<button type="button" class="puce" data-action="logcourse" data-course="${esc(c.name)}" aria-pressed="${log.course === c.name}">${esc(c.name)}</button>`).join("");
+  const quick = QUICK_MINUTES.map((m) => `<button type="button" class="puce petite" data-action="setmin" data-value="${m}" aria-pressed="${log.minutes === m}">${CG.duration(m)}</button>`).join("");
+  const todayIso = CG.toIso(today);
+  const course = k.courses.find((c) => c.name === log.course);
+  let lines = "";
+  if (log.date === todayIso) {
+    const after = k.todayMinutes + log.minutes;
+    const reached = after >= data.dailyMin;
+    lines += `<div class="${reached ? "bon" : "petit"}">Avec cette session : ${CG.duration(after)} aujourd'hui, ${reached ? "objectif atteint." : "encore " + CG.duration(data.dailyMin - after) + "."}</div>`;
+  }
+  if (course && log.date >= k.weekStart && log.date <= todayIso) {
+    lines += `<div class="petit">${esc(course.name)} : ${CG.duration(course.done + log.minutes)} sur 7 jours, sur ${CG.duration(course.goal)} prévues.</div>`;
+  }
+  return `
+  <section class="carte">
+    <h2>Noter ma session</h2>
+    <div class="puces" role="group" aria-label="Cours">${chips}</div>
+    <div class="duree">
+      <button type="button" class="rond clair" data-action="min" data-delta="-5" aria-label="Retirer 5 minutes"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M5 12h14"></path></svg></button>
+      <div class="gros-moyen">${CG.duration(log.minutes)}</div>
+      <button type="button" class="rond" data-action="min" data-delta="5" aria-label="Ajouter 5 minutes"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></button>
+    </div>
+    <div class="puces centree" role="group" aria-label="Durées rapides">${quick}</div>
+    <label class="champ">Date<input id="l-date" type="date" max="${todayIso}" value="${esc(log.date)}"></label>
+    ${lines ? `<div class="consequence">${lines}</div>` : ""}
+    ${state.revMessage ? `<div class="message">${esc(state.revMessage)}</div>` : ""}
+    <button type="button" class="bouton" data-action="savesession">Enregistrer</button>
+    ${state.revConfirmation ? `<div class="confirmation">${esc(state.revConfirmation)}</div>` : ""}
+  </section>`;
+}
+
+function coursesBlock(k) {
+  if (!k.courses.length) return "";
+  const rows = k.courses
+    .map((c) => {
+      const scale = Math.max(c.goal, c.done, 1) * 1.1;
+      const ok = c.done >= c.goal;
+      return `
+      <div class="categorie">
+        <div class="ligne base"><strong>${esc(c.name)}</strong><span class="petit">${CG.duration(c.done)} / ${CG.duration(c.goal)} · <span class="${ok ? "bon" : "mauvais"}">${signedDuration(c.gap)}</span></span></div>
+        <div class="piste fine repere-but" role="img" aria-label="${esc(c.name)} : ${CG.duration(c.done)} révisées, objectif de ${CG.duration(c.goal)} ${ok ? "atteint" : "pas encore atteint"}">
+          <div class="remplissage ${ok ? "" : "alerte"}" style="width:${Math.min(100, (c.done / scale) * 100).toFixed(1)}%"></div>
+          <div class="but" style="left:${((c.goal / scale) * 100).toFixed(1)}%"></div>
+        </div>
+      </div>`;
+    })
+    .join("");
+  return `<section class="carte"><div class="ligne base"><h2>Par cours, 7 derniers jours</h2><span class="petit">Total ${CG.duration(k.weekTotal)}</span></div>${rows}</section>`;
+}
+
+const calendarIcon = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15.5" rx="3"></rect><path d="M3.5 10h17M8 3v4M16 3v4"></path></svg>`;
+
+function examsBlock(k, today) {
+  const data = state.revision;
+  const draft = state.examDraft;
+  const rows = k.exams.length
+    ? k.exams
+        .map((e) => {
+          const late = e.delay > 0;
+          return `
+        <div class="depense">
+          <div>
+            <div class="nom">${esc(e.course)}</div>
+            <div class="petit">${esc(longDate(e.date))} · ${inDays(e.daysLeft)}</div>
+            ${late ? `<div class="petit">Soit ${CG.duration(Math.ceil(e.perDay))} de plus par jour</div>` : ""}
+          </div>
+          <div class="colonne-droite">
+            <span class="pastille ${late ? "alerte" : ""}">${late ? CG.duration(e.delay) + " de retard" : "À jour"}</span>
+            <button type="button" class="supprimer" data-action="delexam" data-id="${e.id}" aria-label="Supprimer ce DS">Supprimer</button>
+          </div>
+        </div>`;
+        })
+        .join("")
+    : `<div class="petit">Aucun DS à venir. Ajoute-en un ci-dessous.</div>`;
+  const chips = data.courses.map((c) => `<button type="button" class="puce" data-action="examcourse" data-course="${esc(c.name)}" aria-pressed="${draft.course === c.name}">${esc(c.name)}</button>`).join("");
+  const form = data.courses.length
+    ? `
+    <div class="consequence">
+      <h2>Ajouter un DS</h2>
+      <div class="puces" role="group" aria-label="Cours du DS">${chips}</div>
+      <label class="champ">Date du DS<input id="x-date" type="date" min="${CG.toIso(today)}" value="${esc(draft.date)}"></label>
+      <button type="button" class="bouton clair" data-action="addexam">Ajouter ce DS</button>
+      ${state.examMessage ? `<div class="message">${esc(state.examMessage)}</div>` : ""}
+    </div>`
+    : "";
+  return `
+  <section class="carte">
+    <button type="button" class="bouton clair avec-icone" data-action="gcal">${calendarIcon} Lier mon Google Agenda</button>
+    <div class="petit centre">${state.gcalMessage ? esc(state.gcalMessage) : "Lecture seule. Tes DS classent les cours à réviser en priorité."}</div>
+    <div class="ligne base separe"><h2>DS à venir</h2><span class="petit">Priorité : date et retard</span></div>
+    ${rows}
+    ${form}
+  </section>`;
+}
+
+function revisionSettings(data) {
+  const courses = data.courses
+    .map(
+      (c) => `
+    <div class="ligne reglage">
+      <label class="champ" style="flex:1">${esc(c.name)} (minutes sur 7 jours)<input type="text" inputmode="numeric" data-rev-goal="${esc(c.name)}" value="${c.goal}"></label>
+      <button type="button" class="supprimer" data-action="delcourse" data-name="${esc(c.name)}" aria-label="Supprimer le cours ${esc(c.name)}">Supprimer</button>
+    </div>`
+    )
+    .join("");
+  return `
+  <section class="carte">
+    <details ${state.settingsOpen ? "open" : ""}><summary>Mes cours et objectifs</summary>
+      <div class="budgets">
+        <label class="champ">Minimum par jour (en minutes)<input type="text" inputmode="numeric" data-rev="daily" value="${data.dailyMin}"></label>
+        ${courses}
+        <div class="saisie">
+          <input id="new-course" type="text" aria-label="Nom du nouveau cours" placeholder="Nouveau cours" autocomplete="off">
+          <button type="button" class="rond" data-action="addcourse" aria-label="Ajouter ce cours"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></button>
+        </div>
+      </div>
+    </details>
+  </section>`;
+}
+
+/* ---------- Ce que font les boutons ---------- */
+
+// Recopie les dates tapées avant de redessiner l'écran.
+function syncRevisionForms() {
+  const logDate = document.getElementById("l-date");
+  const examDate = document.getElementById("x-date");
+  if (logDate && state.log) state.log.date = logDate.value;
+  if (examDate && state.examDraft) state.examDraft.date = examDate.value;
+}
+
+function clearRevisionMessages() {
+  state.revMessage = "";
+  state.revConfirmation = "";
+  state.examMessage = "";
+  state.gcalMessage = "";
+}
+
+// Renvoie true si l'action concerne la révision (et a été traitée).
+function revisionClick(action, button) {
+  const actions = ["logcourse", "min", "setmin", "savesession", "gcal", "examcourse", "addexam", "delexam", "addcourse", "delcourse"];
+  if (!actions.includes(action)) return false;
+  syncRevisionForms();
+  clearRevisionMessages();
+  const data = state.revision;
+
+  if (action === "logcourse") state.log.course = button.dataset.course;
+  else if (action === "min") state.log.minutes = Math.min(600, Math.max(5, state.log.minutes + Number(button.dataset.delta)));
+  else if (action === "setmin") state.log.minutes = Number(button.dataset.value);
+  else if (action === "examcourse") state.examDraft.course = button.dataset.course;
+  else if (action === "gcal") {
+    state.gcalMessage = "Le lien avec Google Agenda sera disponible quand l'appli sera en ligne avec une autorisation Google (étape 4). En attendant, ajoute tes DS à la main ci-dessous.";
+  } else if (action === "savesession") {
+    if (!state.log.course) state.revMessage = "Choisis un cours.";
+    else if (!state.log.date) state.revMessage = "Choisis une date.";
+    else {
+      data.sessions.push({ id: Date.now(), course: state.log.course, minutes: state.log.minutes, date: state.log.date });
+      saveRevision();
+      state.revConfirmation = "Session enregistrée.";
+    }
+  } else if (action === "addexam") {
+    if (!state.examDraft.course) state.examMessage = "Choisis un cours.";
+    else if (!state.examDraft.date) state.examMessage = "Choisis la date du DS.";
+    else {
+      data.exams.push({ id: Date.now(), course: state.examDraft.course, date: state.examDraft.date });
+      saveRevision();
+      state.examDraft.date = "";
+    }
+  } else if (action === "delexam") {
+    if (window.confirm("Supprimer ce DS ?")) {
+      data.exams = data.exams.filter((e) => String(e.id) !== button.dataset.id);
+      saveRevision();
+    }
+  } else if (action === "addcourse") {
+    const field = document.getElementById("new-course");
+    const name = field ? field.value.trim() : "";
+    if (name && !data.courses.some((c) => c.name.toLowerCase() === name.toLowerCase())) {
+      data.courses.push({ name, goal: 120 });
+      saveRevision();
+    }
+  } else if (action === "delcourse") {
+    if (window.confirm("Supprimer ce cours de la liste ? Tes sessions déjà notées restent enregistrées.")) {
+      data.courses = data.courses.filter((c) => c.name !== button.dataset.name);
+      saveRevision();
+    }
+  }
+  render();
+  return true;
+}
+
+// Réglages modifiés (minimum par jour, objectif d'un cours). Renvoie true si c'est un réglage de révision.
+function revisionChange(event) {
+  const target = event.target;
+  const data = state.revision;
+  if (target.dataset.rev === "daily") {
+    const value = parseInt(target.value, 10);
+    if (value > 0) data.dailyMin = value;
+  } else if (target.dataset.revGoal !== undefined) {
+    const value = parseInt(target.value, 10);
+    const course = data.courses.find((c) => c.name === target.dataset.revGoal);
+    if (course && value >= 0) course.goal = value;
+  } else return false;
+  saveRevision();
+  render();
+  return true;
+}
 
 // app.js : ce qui s'affiche à l'écran, et ce qui se passe quand je touche un bouton.
 // Le calcul est dans calc.js (objet CG) ; ici on ne fait qu'afficher et enregistrer.
 
-const STORE = { budgets: "cg.budgets", expenses: "cg.expenses" };
+const STORE = { budgets: "cg.budgets", expenses: "cg.expenses", revision: "cg.revision" };
 
 // Les données sont gardées dans le navigateur (localStorage). Si c'est bloqué, l'appli marche quand même.
 function read(key, fallback) {
@@ -388,6 +876,14 @@ function write(key, value) {
 const state = {
   budgets: Object.assign({}, CG.DEFAULT_BUDGETS, read(STORE.budgets, {})),
   expenses: read(STORE.expenses, []),
+  revision: loadRevision(), // défini dans revision.js
+  tab: "budget", // onglet affiché : "budget" ou "revision"
+  log: null, // formulaire « Noter ma session »
+  examDraft: null, // formulaire « Ajouter un DS »
+  revMessage: "",
+  revConfirmation: "",
+  examMessage: "",
+  gcalMessage: "",
   sentence: "",
   draft: null, // la dépense en cours de validation
   message: "",
@@ -551,10 +1047,30 @@ function settingsBlock() {
   <button type="button" class="bouton clair" data-action="export">Exporter mes données (sauvegarde)</button>`;
 }
 
+// La barre d'onglets en bas de l'écran.
+function navBlock() {
+  const tabs = [
+    { id: "budget", label: "Budget", icon: '<path d="M3 7h15a3 3 0 0 1 3 3v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z M3 7l12-3v3 M16 14h2"></path>' },
+    { id: "revision", label: "Révision", icon: '<path d="M2.5 9 12 4.5 21.5 9 12 13.5z M6.5 11.2v4.3c0 1.4 2.5 2.9 5.5 2.9s5.5-1.5 5.5-2.9v-4.3 M21.5 9v5.5"></path>' },
+  ];
+  const buttons = tabs
+    .map((tab) => {
+      const active = state.tab === tab.id;
+      const icon = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${tab.icon}</svg>`;
+      return `<button type="button" class="onglet ${active ? "actif" : ""}" data-action="tab" data-tab="${tab.id}" ${active ? 'aria-current="page"' : `aria-label="${tab.label}"`}>${icon}${active ? tab.label : ""}</button>`;
+    })
+    .join("");
+  return `<nav class="barre" aria-label="Navigation principale">${buttons}</nav>`;
+}
+
 function render() {
   const today = new Date();
   const k = CG.indicators(state.budgets, state.expenses, today);
-  app.innerHTML = [headerBlock(today), summaryBlock(k), categoriesBlock(k), addBlock(), draftBlock(k, today), indicatorsBlock(k), lastExpensesBlock(today), settingsBlock()].join("");
+  const content =
+    state.tab === "revision"
+      ? revisionView(today)
+      : [headerBlock(today), summaryBlock(k), categoriesBlock(k), addBlock(), draftBlock(k, today), indicatorsBlock(k), lastExpensesBlock(today), settingsBlock()].join("");
+  app.innerHTML = content + navBlock();
 }
 
 /* ---------- Ce qui se passe quand je touche un bouton ---------- */
@@ -648,7 +1164,7 @@ function saveExpense() {
 }
 
 function exportData() {
-  const data = JSON.stringify({ budgets: state.budgets, expenses: state.expenses }, null, 2);
+  const data = JSON.stringify({ budgets: state.budgets, expenses: state.expenses, revision: state.revision }, null, 2);
   const link = document.createElement("a");
   link.href = URL.createObjectURL(new Blob([data], { type: "application/json" }));
   link.download = "mes-depenses-" + CG.toIso(new Date()) + ".json";
@@ -659,7 +1175,12 @@ app.addEventListener("click", (event) => {
   const button = event.target.closest("[data-action]");
   if (!button) return;
   const action = button.dataset.action;
-  if (action === "voice") startVoice();
+  if (revisionClick(action, button)) return; // boutons de l'onglet Révision (revision.js)
+  if (action === "tab") {
+    state.tab = button.dataset.tab;
+    window.scrollTo(0, 0);
+    render();
+  } else if (action === "voice") startVoice();
   else if (action === "read") readSentence();
   else if (action === "manual") {
     state.confirmation = "";
@@ -698,6 +1219,7 @@ app.addEventListener("toggle", (event) => {
 }, true);
 
 app.addEventListener("change", (event) => {
+  if (revisionChange(event)) return; // réglages de l'onglet Révision (revision.js)
   const name = event.target.dataset.budget;
   if (!name) return;
   const value = parseFloat(event.target.value.replace(",", "."));
