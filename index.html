@@ -293,6 +293,12 @@ details summary { cursor: pointer; font-size: 14px; font-weight: 600; color: var
 .actions-livre { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
 .puce.petite { padding: 0 12px; min-height: 36px; font-size: 14px; }
 
+/* Accueil */
+.petite-bague { width: 88px; height: 88px; flex: none; }
+.petit-texte { font-size: 18px; }
+.rond.mini { width: 44px; height: 44px; margin: -8px -8px -8px 0; }
+.gros-moyen small { font-family: "Inter", sans-serif; font-weight: 400; font-size: 14px; color: var(--discret); letter-spacing: 0; }
+
 </style>
 </head>
 <body>
@@ -1186,6 +1192,70 @@ function readingChange(event) {
   return true;
 }
 
+// home.js : l'écran d'accueil « Où j'en suis » avec les 3 anneaux (budget, révision, lecture).
+
+function homeRing(percent, color, label) {
+  const dash = (Math.min(100, percent) / 100) * 226.19;
+  return `
+    <div class="bague petite-bague" role="img" aria-label="${label}">
+      <svg width="88" height="88" viewBox="0 0 88 88" aria-hidden="true">
+        <circle cx="44" cy="44" r="36" fill="none" stroke="#E7E2DA" stroke-width="10"></circle>
+        ${dash > 0 ? `<circle cx="44" cy="44" r="36" fill="none" stroke="${color}" stroke-width="10" stroke-linecap="round" stroke-dasharray="${dash.toFixed(1)} 226.19" transform="rotate(-90 44 44)"></circle>` : ""}
+      </svg>
+      <div class="bague-texte petit-texte">${Math.round(percent)} %</div>
+    </div>`;
+}
+
+function homeCard(title, tab, ring, main, small, detail, pill, ok) {
+  return `
+  <section class="carte ligne-bague">
+    ${ring}
+    <div class="bague-infos">
+      <div class="ligne"><h2>${title}</h2><button type="button" class="rond clair mini" data-action="tab" data-tab="${tab}" aria-label="Ouvrir ${title}"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></button></div>
+      <div class="gros-moyen">${main} <small>${small}</small></div>
+      <div class="discret">${detail}</div>
+      <span class="pastille ${ok ? "" : "alerte"}" style="align-self:flex-start">${pill}</span>
+    </div>
+  </section>`;
+}
+
+function homeView(today) {
+  const b = CG.indicators(state.budgets, state.expenses, today);
+  const r = CG.revisionIndicators(state.revision, today);
+  const l = CG.readingIndicators(state.reading, today);
+  const budgetCard = homeCard(
+    "Budget du mois", "budget",
+    homeRing(b.percentBudget, b.onTrack ? "#1E7B4B" : "#E0701A", `${Math.round(b.percentBudget)} % du budget du mois dépensé`),
+    euros(b.spent), `sur ${euros(b.budget)}`,
+    `Reste ${euros(Math.max(0, b.restPerDay))} par jour`,
+    b.onTrack ? "Dans le budget" : "Au-dessus du budget", b.onTrack
+  );
+  const revCard = homeCard(
+    "Révision", "revision",
+    homeRing(r.percentToday, "#1E7B4B", `${Math.round(r.percentToday)} % du temps de révision minimum atteint aujourd'hui`),
+    CG.duration(r.todayMinutes), `min ${CG.duration(r.dailyMin)}`,
+    r.streak > 0 ? `${r.streak} jour${r.streak > 1 ? "s" : ""} de suite` : "Aujourd'hui",
+    r.remainingToday === 0 ? "Objectif atteint" : "Encore " + CG.duration(r.remainingToday), r.remainingToday === 0
+  );
+  const readCard = homeCard(
+    "Lecture", "lecture",
+    homeRing(l.percentToday, "#1E7B4B", `${Math.round(l.percentToday)} % du temps de lecture minimum atteint aujourd'hui`),
+    CG.duration(l.todayMinutes), `min ${CG.duration(l.dailyMin)}`,
+    l.streak > 0 ? `${l.streak} jour${l.streak > 1 ? "s" : ""} de suite` : "Aujourd'hui",
+    l.remainingToday === 0 ? "Objectif atteint" : "Encore " + CG.duration(l.remainingToday), l.remainingToday === 0
+  );
+  const reached = (r.remainingToday === 0 ? 1 : 0) + (l.remainingToday === 0 ? 1 : 0) + (b.onTrack ? 1 : 0);
+  const exam = r.exams.length ? r.exams[0] : null;
+  const bilan = `
+  <section class="carte">
+    <h2>Bilan du jour</h2>
+    <div class="gros-moyen">${reached} objectif${reached > 1 ? "s" : ""} sur 3</div>
+    <div class="discret">Budget dans les clous, révision et lecture au minimum.</div>
+    ${exam ? `<div class="consequence"><div class="petit">Prochain DS : <strong>${esc(exam.course)}</strong>, ${exam.daysLeft === 0 ? "aujourd'hui" : "dans " + exam.daysLeft + " jour" + (exam.daysLeft > 1 ? "s" : "")}.</div></div>` : ""}
+  </section>`;
+  return `<header><div class="mois">${esc(longDate(CG.toIso(today)))}</div><h1>Où j'en suis</h1></header>` + budgetCard + revCard + readCard + bilan;
+}
+
 // app.js : ce qui s'affiche à l'écran, et ce qui se passe quand je touche un bouton.
 // Le calcul est dans calc.js (objet CG) ; ici on ne fait qu'afficher et enregistrer.
 
@@ -1214,7 +1284,7 @@ const state = {
   expenses: read(STORE.expenses, []),
   revision: loadRevision(), // défini dans revision.js
   reading: loadReading(), // défini dans reading.js
-  tab: "budget", // onglet affiché : "budget", "revision" ou "lecture"
+  tab: "accueil", // onglet affiché : "budget", "revision" ou "lecture"
   log: null, // formulaire « Noter ma session »
   examDraft: null, // formulaire « Ajouter un DS »
   revMessage: "",
@@ -1387,6 +1457,7 @@ function settingsBlock() {
 // La barre d'onglets en bas de l'écran.
 function navBlock() {
   const tabs = [
+    { id: "accueil", label: "Accueil", icon: '<path d="M4 11.5 12 4l8 7.5V20H4z M10 20v-5h4v5"></path>' },
     { id: "budget", label: "Budget", icon: '<path d="M3 7h15a3 3 0 0 1 3 3v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z M3 7l12-3v3 M16 14h2"></path>' },
     { id: "revision", label: "Révision", icon: '<path d="M2.5 9 12 4.5 21.5 9 12 13.5z M6.5 11.2v4.3c0 1.4 2.5 2.9 5.5 2.9s5.5-1.5 5.5-2.9v-4.3 M21.5 9v5.5"></path>' },
     { id: "lecture", label: "Lecture", icon: '<path d="M4 5h6a3 3 0 0 1 2 1v14a3 3 0 0 0-2-1H4z M20 5h-6a3 3 0 0 0-2 1v14a3 3 0 0 1 2-1h6z"></path>' },
@@ -1405,7 +1476,9 @@ function render() {
   const today = new Date();
   const k = CG.indicators(state.budgets, state.expenses, today);
   const content =
-    state.tab === "revision"
+    state.tab === "accueil"
+      ? homeView(today)
+      : state.tab === "revision"
       ? revisionView(today)
       : state.tab === "lecture"
       ? readingView(today)
