@@ -320,6 +320,8 @@ details summary { cursor: pointer; font-size: 14px; font-weight: 600; color: var
 @media (prefers-reduced-motion: reduce) { .page, .onglet.actif, .barre.anime .onglet.actif svg { animation: none !important; } }
 html, body { overflow-x: hidden; }
 
+html, body { min-height: 100vh; touch-action: pan-y; overscroll-behavior-x: none; }
+
 </style>
 </head>
 <body>
@@ -364,8 +366,73 @@ function normalize(text) {
     .replace(/[̀-ͯ]/g, "");
 }
 
+
+// Transforme les nombres dictés en lettres en chiffres : « cinq euros cinquante » devient « 5 euros 50 ».
+const NUMBER_WORDS = {
+  zero: 0, un: 1, une: 1, deux: 2, trois: 3, quatre: 4, cinq: 5, six: 6, sept: 7, huit: 8, neuf: 9, dix: 10,
+  onze: 11, douze: 12, treize: 13, quatorze: 14, quinze: 15, seize: 16, vingt: 20, vingts: 20, trente: 30,
+  quarante: 40, cinquante: 50, soixante: 60, cent: 100, cents: 100, mille: 1000,
+};
+
+function numberWordsToDigits(text) {
+  const tokens = text.split(/(\s+|-)/); // on garde les séparateurs pour ne rien perdre
+  const isEuro = (t) => t && /^(euros?|eur|€|balles?)$/.test(normalize(t));
+  const out = [];
+  let i = 0;
+  while (i < tokens.length) {
+    const word = normalize(tokens[i]).replace(/[^a-z]/g, "");
+    if (!(word in NUMBER_WORDS) || tokens[i] === "") {
+      out.push(tokens[i]);
+      i++;
+      continue;
+    }
+    // On lit toute la suite de mots-nombres (avec « et » et les tirets entre eux)
+    let j = i;
+    const run = [];
+    while (j < tokens.length) {
+      const w = normalize(tokens[j]).replace(/[^a-z]/g, "");
+      if (w in NUMBER_WORDS) run.push(w);
+      else if (/^(\s+|-)$/.test(tokens[j]) || w === "et") {
+        // séparateur ou « et » : on continue seulement si un autre mot-nombre suit
+        let k = j + 1;
+        while (k < tokens.length && (/^(\s+|-)$/.test(tokens[k]) || normalize(tokens[k]) === "et")) k++;
+        const next = k < tokens.length ? normalize(tokens[k]).replace(/[^a-z]/g, "") : "";
+        if (!(next in NUMBER_WORDS) || tokens[k] === "") break;
+        j = k - 1;
+      } else break;
+      j++;
+    }
+    // « un » / « une » tout seul est un article (« un kebab »), sauf devant « euro »
+    let nextWord = j;
+    while (nextWord < tokens.length && /^\s+$/.test(tokens[nextWord])) nextWord++;
+    if (run.length === 1 && (run[0] === "un" || run[0] === "une") && !isEuro(tokens[nextWord])) {
+      out.push(tokens[i]);
+      i++;
+      continue;
+    }
+    let total = 0;
+    let current = 0;
+    let previous = "";
+    run.forEach((w) => {
+      const value = NUMBER_WORDS[w];
+      if (value === 1000) {
+        total += (current || 1) * 1000;
+        current = 0;
+      } else if (value === 100) current = (current || 1) * 100;
+      else if (value === 20 && previous === "quatre") current = current - 4 + 80;
+      else current += value;
+      previous = w;
+    });
+    out.push(String(total + current));
+    i = j;
+  }
+  // « douze virgule cinq » devient « 12,5 »
+  return out.join("").replace(/(\d)\s+virgule\s+(\d)/gi, "$1,$2");
+}
+
 // Lit une phrase comme « 12 euros courses hier » et en tire le montant, la catégorie et la date.
 function parseExpense(text, today = new Date()) {
+  text = numberWordsToDigits(text);
   const clean = normalize(text);
 
   // 1. Le montant
@@ -651,7 +718,31 @@ function readingIndicators(data, today = new Date()) {
   };
 }
 
-const CG = { CATEGORIES, DEFAULT_BUDGETS, DEFAULT_REVISION, DEFAULT_READING, parseExpense, indicators, revisionIndicators, readingIndicators, duration, addDays, toIso, fromIso };
+
+// Google Agenda : transforme les événements en DS. Un événement est un DS s'il est en rouge tomate (colorId 11)
+// ou si son titre contient DS, contrôle, partiel, examen ou évaluation.
+function plain(text) {
+  return String(text || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+}
+
+function examsFromEvents(events, courses) {
+  const looksLikeExam = /\b(ds|controle|partiel|examen|evaluation)\b/;
+  return (events || [])
+    .filter((e) => e.status !== "cancelled" && e.start && (e.colorId === "11" || looksLikeExam.test(plain(e.summary))))
+    .map((e) => {
+      const title = plain(e.summary);
+      const match = courses.find((c) => title.includes(plain(c.name)));
+      return {
+        id: "g" + e.id,
+        gcalId: e.id,
+        course: match ? match.name : String(e.summary || "DS").trim(),
+        date: (e.start.date || e.start.dateTime || "").slice(0, 10),
+      };
+    })
+    .filter((e) => e.date);
+}
+
+const CG = { CATEGORIES, DEFAULT_BUDGETS, DEFAULT_REVISION, DEFAULT_READING, parseExpense, indicators, revisionIndicators, readingIndicators, examsFromEvents, duration, addDays, toIso, fromIso };
 if (typeof module !== "undefined") module.exports = CG;
 
 // revision.js : l'onglet Révision (ce qui s'affiche et ce que font les boutons).
@@ -874,6 +965,7 @@ function revisionSettings(data) {
       <div class="budgets">
         <label class="champ">Minimum par jour (en minutes)<input type="text" inputmode="numeric" data-rev="daily" value="${data.dailyMin}"></label>
         ${courses}
+        ${gcalSettings()}
         <div class="saisie">
           <input id="new-course" type="text" aria-label="Nom du nouveau cours" placeholder="Nouveau cours" autocomplete="off">
           <button type="button" class="rond" data-action="addcourse" aria-label="Ajouter ce cours"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></button>
@@ -913,7 +1005,7 @@ function revisionClick(action, button) {
   else if (action === "setmin") state.log.minutes = Number(button.dataset.value);
   else if (action === "examcourse") state.examDraft.course = button.dataset.course;
   else if (action === "gcal") {
-    state.gcalMessage = "Le lien avec Google Agenda sera disponible quand l'appli sera en ligne avec une autorisation Google (étape 4). En attendant, ajoute tes DS à la main ci-dessous.";
+    syncGoogleCalendar(); // défini dans gcal.js
   } else if (action === "savesession") {
     if (!state.log.course) state.revMessage = "Choisis un cours.";
     else if (!state.log.date) state.revMessage = "Choisis une date.";
@@ -954,6 +1046,7 @@ function revisionClick(action, button) {
 
 // Réglages modifiés (minimum par jour, objectif d'un cours). Renvoie true si c'est un réglage de révision.
 function revisionChange(event) {
+  if (gcalChange(event)) return true;
   const target = event.target;
   const data = state.revision;
   if (target.dataset.rev === "daily") {
@@ -1209,6 +1302,81 @@ function readingChange(event) {
     state.reading.dailyMin = value;
     saveReading();
   }
+  render();
+  return true;
+}
+
+// gcal.js : lecture seule de Google Agenda (les DS à venir). Rien n'est écrit dans ton agenda.
+// L'identifiant client Google se colle une fois dans « Mes cours et objectifs » ; il reste dans ce navigateur.
+
+const GCAL_STORE = "cg.gcal";
+
+function gcalClientId() {
+  const saved = read(GCAL_STORE, {});
+  return saved && saved.clientId ? saved.clientId : "";
+}
+
+function loadGoogleScript() {
+  return new Promise((resolve, reject) => {
+    if (window.google && window.google.accounts && window.google.accounts.oauth2) return resolve();
+    const script = document.createElement("script");
+    script.src = "https://accounts.google.com/gsi/client";
+    script.onload = () => resolve();
+    script.onerror = () => reject(new Error("Impossible de charger Google. Vérifie ta connexion."));
+    document.head.appendChild(script);
+  });
+}
+
+function setGcalMessage(text) {
+  state.gcalMessage = text;
+  render();
+}
+
+async function syncGoogleCalendar() {
+  const clientId = gcalClientId();
+  if (!clientId) {
+    state.gcalMessage = "Colle d'abord ton identifiant client Google dans « Mes cours et objectifs » (en bas de l'écran).";
+    return;
+  }
+  state.gcalMessage = "Connexion à Google…";
+  try {
+    await loadGoogleScript();
+    const token = await new Promise((resolve, reject) => {
+      const client = window.google.accounts.oauth2.initTokenClient({
+        client_id: clientId,
+        scope: "https://www.googleapis.com/auth/calendar.readonly",
+        callback: (response) => (response.access_token ? resolve(response.access_token) : reject(new Error(response.error || "Autorisation refusée."))),
+        error_callback: () => reject(new Error("Autorisation annulée.")),
+      });
+      client.requestAccessToken();
+    });
+    const now = new Date();
+    const limit = new Date(now.getTime() + 180 * 86400000);
+    const url =
+      "https://www.googleapis.com/calendar/v3/calendars/primary/events?singleEvents=true&orderBy=startTime&maxResults=250" +
+      "&timeMin=" + encodeURIComponent(now.toISOString()) + "&timeMax=" + encodeURIComponent(limit.toISOString());
+    const response = await fetch(url, { headers: { Authorization: "Bearer " + token } });
+    if (!response.ok) throw new Error("Google a refusé la lecture de l'agenda (code " + response.status + ").");
+    const events = (await response.json()).items || [];
+    const found = CG.examsFromEvents(events, state.revision.courses);
+    const manual = state.revision.exams.filter((e) => !e.gcalId);
+    state.revision.exams = manual.concat(found);
+    saveRevision();
+    setGcalMessage(found.length ? found.length + " DS lu" + (found.length > 1 ? "s" : "") + " dans ton agenda." : "Aucun DS trouvé dans les 6 prochains mois (couleur rouge tomate ou titre avec DS, contrôle, partiel…).");
+  } catch (error) {
+    setGcalMessage(error.message || "La lecture de Google Agenda a échoué.");
+  }
+}
+
+function gcalSettings() {
+  return `
+  <label class="champ">Identifiant client Google (pour lire tes DS)<input type="text" data-gcal="clientid" autocomplete="off" placeholder="xxxx.apps.googleusercontent.com" value="${esc(gcalClientId())}"></label>`;
+}
+
+// Renvoie true si le champ modifié est l'identifiant client Google.
+function gcalChange(event) {
+  if (event.target.dataset.gcal !== "clientid") return false;
+  write(GCAL_STORE, { clientId: event.target.value.trim() });
   render();
   return true;
 }
@@ -1529,19 +1697,23 @@ function goNextTab(step) {
   if (next >= 0 && next < TAB_ORDER.length) goToTab(TAB_ORDER[next]);
 }
 
+// Glissement : au doigt (touchstart/touchend, partout sur l'écran) ou à la souris.
 let swipe = null;
-app.addEventListener("pointerdown", (event) => {
-  if (event.target.closest("input, textarea, select, .barre")) return;
-  swipe = { x: event.clientX, y: event.clientY };
-});
-app.addEventListener("pointerup", (event) => {
+function swipeStart(x, y, target) {
+  swipe = target.closest && target.closest("input, textarea, select, .barre") ? null : { x, y };
+}
+function swipeEnd(x, y) {
   if (!swipe) return;
-  const dx = event.clientX - swipe.x;
-  const dy = event.clientY - swipe.y;
+  const dx = x - swipe.x;
+  const dy = y - swipe.y;
   swipe = null;
-  if (Math.abs(dx) > 70 && Math.abs(dx) > Math.abs(dy) * 1.5) goNextTab(dx < 0 ? 1 : -1);
-});
-app.addEventListener("pointercancel", () => { swipe = null; });
+  if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.3) goNextTab(dx < 0 ? 1 : -1);
+}
+document.addEventListener("touchstart", (e) => swipeStart(e.touches[0].clientX, e.touches[0].clientY, e.target), { passive: true });
+document.addEventListener("touchend", (e) => swipeEnd(e.changedTouches[0].clientX, e.changedTouches[0].clientY), { passive: true });
+document.addEventListener("touchcancel", () => { swipe = null; }, { passive: true });
+document.addEventListener("pointerdown", (e) => { if (e.pointerType === "mouse") swipeStart(e.clientX, e.clientY, e.target); });
+document.addEventListener("pointerup", (e) => { if (e.pointerType === "mouse") swipeEnd(e.clientX, e.clientY); });
 document.addEventListener("keydown", (event) => {
   if (/INPUT|TEXTAREA|SELECT/.test(event.target.tagName)) return;
   if (event.key === "ArrowRight") goNextTab(1);
