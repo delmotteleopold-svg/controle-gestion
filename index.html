@@ -336,6 +336,11 @@ input[type="date"] {
 input[type="date"]::-webkit-date-and-time-value { text-align: left; min-height: 1.2em; }
 input[type="date"]::-webkit-calendar-picker-indicator { margin: 0; }
 
+/* Champs date : on affiche notre propre cadre, le vrai champ est posé dessus, invisible (iPhone) */
+.date-wrap { position: relative; display: block; width: 100%; height: 48px; }
+.date-affiche { display: flex; align-items: center; width: 100%; height: 48px; padding: 0 16px; border: 1px solid var(--trait); border-radius: 24px; background: #fff; color: var(--encre); font-size: 16px; overflow: hidden; white-space: nowrap; }
+.date-wrap input[type="date"] { position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0; border: 0; padding: 0; margin: 0; font-size: 16px; }
+
 /* Glisser au doigt comme sur Instagram : la page suit le doigt, la voisine arrive à côté */
 #app { position: relative; }
 .voisine { position: absolute; left: 20px; right: 20px; pointer-events: none; will-change: transform; }
@@ -1693,11 +1698,30 @@ function pageContent(tab, today) {
     : [headerBlock(today), summaryBlock(k), categoriesBlock(k), addBlock(), draftBlock(k, today), indicatorsBlock(k), lastExpensesBlock(today), settingsBlock()].join("");
 }
 
+// Remplace l'affichage des champs date par un cadre à nous (le vrai champ reste dessous, invisible).
+function enhanceDates(root) {
+  const format = new Intl.DateTimeFormat("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+  root.querySelectorAll('input[type="date"]').forEach((input) => {
+    const wrap = document.createElement("span");
+    wrap.className = "date-wrap";
+    const show = document.createElement("span");
+    show.className = "date-affiche";
+    input.parentNode.insertBefore(wrap, input);
+    wrap.appendChild(show);
+    wrap.appendChild(input);
+    const update = () => { show.textContent = input.value ? format.format(CG.fromIso(input.value)) : "Choisir une date"; };
+    update();
+    input.addEventListener("input", update);
+    input.addEventListener("change", update);
+  });
+}
+
 function render() {
   const today = new Date();
   const slide = state.slide ? " glisse-" + state.slide : "";
   state.slide = "";
   app.innerHTML = `<div class="page${slide}">${pageContent(state.tab, today)}</div>` + navBlock().replace('class="barre"', `class="barre${slide ? " anime" : ""}"`);
+  enhanceDates(app);
 }
 
 /* ---------- Glisser d'une rubrique à l'autre ---------- */
@@ -1734,6 +1758,7 @@ function makeNeighbor(tab) {
   el.className = "page voisine";
   el.setAttribute("aria-hidden", "true");
   el.innerHTML = pageContent(tab, new Date());
+  enhanceDates(el);
   el.style.top = 52 + window.scrollY + "px";
   app.appendChild(el);
   return el;
