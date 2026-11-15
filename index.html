@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Mon budget</title>
+<title>Ma vie d'étudiant</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Space+Grotesk:wght@500;600&amp;display=swap">
 <style>
@@ -282,6 +282,17 @@ details summary { cursor: pointer; font-size: 14px; font-weight: 600; color: var
   font-weight: 600;
 }
 .onglet.actif { width: auto; padding: 0 18px 0 14px; background: var(--vert-fond); color: var(--vert-texte); }
+
+/* Lecture */
+.etagere { display: flex; gap: 10px; overflow: hidden; margin-bottom: 4px; }
+.tuile { flex: none; display: flex; flex-direction: column; align-items: flex-start; }
+.couv { box-sizing: border-box; width: 76px; height: 112px; border-radius: 10px; padding: 10px; display: flex; align-items: flex-end; font-family: "Space Grotesk", "Inter", sans-serif; font-weight: 600; font-size: 13px; line-height: 1.2; overflow: hidden; }
+.livre-en-cours { display: flex; gap: 14px; align-items: flex-start; margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--separation); }
+.mini-couv { flex: none; width: 44px; height: 64px; border-radius: 8px; }
+.livre-infos { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.actions-livre { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+.puce.petite { padding: 0 12px; min-height: 36px; font-size: 14px; }
+
 </style>
 </head>
 <body>
@@ -466,12 +477,9 @@ function duration(minutes) {
   return hours + " h " + pad(rest);
 }
 
-// Calcule tous les indicateurs de révision à partir des sessions notées.
-function revisionIndicators(data, today = new Date()) {
-  const todayIso = toIso(today);
-  const minutesOn = (iso) => sum(data.sessions.filter((s) => s.date === iso).map((s) => s.minutes));
-  const dailyMin = data.dailyMin;
-  const todayMinutes = minutesOn(todayIso);
+// Statistiques « minutes par jour contre un minimum », communes à la révision et à la lecture.
+function dailyStats(sessions, dailyMin, today) {
+  const minutesOn = (iso) => sum(sessions.filter((s) => s.date === iso).map((s) => s.minutes));
 
   // Les 7 derniers jours, aujourd'hui compris
   const days = [];
@@ -481,12 +489,30 @@ function revisionIndicators(data, today = new Date()) {
     days.push({ iso: toIso(date), weekday: date.getDay(), minutes, reached: minutes >= dailyMin, isToday: i === 0 });
   }
   const finishedDays = days.filter((d) => !d.isToday);
-  const average7 = sum(days.map((d) => d.minutes)) / 7;
-  const daysReached = finishedDays.filter((d) => d.reached).length;
+  const todayMinutes = days[6].minutes;
 
   // Série : jours de suite où le minimum est atteint. Aujourd'hui compte seulement s'il est déjà atteint.
   let streak = days[6].reached ? 1 : 0;
   for (let i = 1; i < 3650 && minutesOn(toIso(addDays(today, -i))) >= dailyMin; i++) streak++;
+
+  return {
+    todayMinutes,
+    days,
+    finishedDays,
+    daysFinished: finishedDays.length,
+    average7: sum(days.map((d) => d.minutes)) / 7,
+    daysReached: finishedDays.filter((d) => d.reached).length,
+    streak,
+    percentToday: dailyMin > 0 ? (todayMinutes / dailyMin) * 100 : 0,
+    remainingToday: Math.max(0, dailyMin - todayMinutes),
+  };
+}
+
+// Calcule tous les indicateurs de révision à partir des sessions notées.
+function revisionIndicators(data, today = new Date()) {
+  const todayIso = toIso(today);
+  const dailyMin = data.dailyMin;
+  const { todayMinutes, days, finishedDays, average7, daysReached, streak } = dailyStats(data.sessions, dailyMin, today);
 
   // Par cours, sur les 7 derniers jours
   const weekStart = days[0].iso;
@@ -532,7 +558,73 @@ function revisionIndicators(data, today = new Date()) {
   };
 }
 
-const CG = { CATEGORIES, DEFAULT_BUDGETS, DEFAULT_REVISION, parseExpense, indicators, revisionIndicators, duration, addDays, toIso, fromIso };
+/* ---------- Lecture ---------- */
+
+// Un minimum de lecture par jour, une bibliothèque et les sessions notées.
+const DEFAULT_READING = {
+  dailyMin: 30,
+  books: [], // { id, title, pages, page, status: "reading" ou "done" }
+  sessions: [], // { id, bookId, minutes, date, pages } (pages = pages lues pendant la session, si connues)
+};
+
+function readingIndicators(data, today = new Date()) {
+  const todayIso = toIso(today);
+  const dailyMin = data.dailyMin;
+  const stats = dailyStats(data.sessions, dailyMin, today);
+
+  // Lu ce mois-ci, comparé au minimum des jours écoulés
+  const monthKey = todayIso.slice(0, 7);
+  const monthMinutes = sum(data.sessions.filter((s) => s.date.slice(0, 7) === monthKey && s.date <= todayIso).map((s) => s.minutes));
+  const monthAboveMinimum = monthMinutes - dailyMin * today.getDate();
+
+  // Meilleure série de tous les temps
+  const perDay = {};
+  data.sessions.forEach((s) => {
+    perDay[s.date] = (perDay[s.date] || 0) + s.minutes;
+  });
+  const dates = Object.keys(perDay).sort();
+  let bestStreak = 0;
+  let run = 0;
+  if (dates.length) {
+    for (let d = fromIso(dates[0]); toIso(d) <= todayIso; d = addDays(d, 1)) {
+      if ((perDay[toIso(d)] || 0) >= dailyMin) {
+        run++;
+        bestStreak = Math.max(bestStreak, run);
+      } else run = 0;
+    }
+  }
+
+  // Vitesse de lecture : pages lues ÷ heures, sur les sessions où la page atteinte a été notée
+  const timed = data.sessions.filter((s) => s.pages > 0);
+  const timedMinutes = sum(timed.map((s) => s.minutes));
+  const speed = timedMinutes > 0 ? (sum(timed.map((s) => s.pages)) / timedMinutes) * 60 : null; // pages par heure
+
+  // Pour chaque livre : progression, temps restant et nombre de jours pour le finir
+  const books = data.books.map((book) => {
+    const pagesLeft = Math.max(0, book.pages - book.page);
+    const timeLeft = speed ? (pagesLeft / speed) * 60 : null;
+    return {
+      ...book,
+      percent: book.pages > 0 ? (book.page / book.pages) * 100 : 0,
+      pagesLeft,
+      timeLeft,
+      daysToFinish: timeLeft !== null && stats.average7 > 0 ? Math.ceil(timeLeft / stats.average7) : null,
+    };
+  });
+
+  return {
+    ...stats,
+    dailyMin,
+    monthMinutes,
+    monthAboveMinimum,
+    bestStreak,
+    speed,
+    books,
+    booksRead: books.filter((b) => b.status === "done").length,
+  };
+}
+
+const CG = { CATEGORIES, DEFAULT_BUDGETS, DEFAULT_REVISION, DEFAULT_READING, parseExpense, indicators, revisionIndicators, readingIndicators, duration, addDays, toIso, fromIso };
 if (typeof module !== "undefined") module.exports = CG;
 
 // revision.js : l'onglet Révision (ce qui s'affiche et ce que font les boutons).
@@ -587,13 +679,13 @@ function revisionHeader(today) {
   return `<header><div class="mois">${esc(longDate(CG.toIso(today)))}</div><h1>Révision</h1></header>`;
 }
 
-function todayBlock(k) {
+function todayBlock(k, subject = "révision") {
   const percent = Math.round(k.percentToday);
   const dash = (Math.min(100, k.percentToday) / 100) * 289.03;
   const pill = k.remainingToday === 0 ? "Objectif atteint" : "Encore " + CG.duration(k.remainingToday);
   return `
   <section class="carte ligne-bague">
-    <div class="bague" role="img" aria-label="${percent} % du temps de révision minimum atteint aujourd'hui">
+    <div class="bague" role="img" aria-label="${percent} % du temps de ${subject} minimum atteint aujourd'hui">
       <svg width="112" height="112" viewBox="0 0 112 112" aria-hidden="true">
         <circle cx="56" cy="56" r="46" fill="none" stroke="#E7E2DA" stroke-width="12"></circle>
         ${dash > 0 ? `<circle cx="56" cy="56" r="46" fill="none" stroke="#1E7B4B" stroke-width="12" stroke-linecap="round" stroke-dasharray="${dash.toFixed(1)} 289.03" transform="rotate(-90 56 56)"></circle>` : ""}
@@ -609,7 +701,7 @@ function todayBlock(k) {
   </section>`;
 }
 
-function weekBlock(k) {
+function weekBlock(k, subject = "révision") {
   const scale = 0.8; // pixels par minute
   const line = Math.min(112, k.dailyMin * scale);
   const bars = k.days
@@ -630,7 +722,7 @@ function weekBlock(k) {
   return `
   <section class="carte">
     <div class="ligne base"><h2>7 derniers jours</h2><span class="petit">Moyenne ${CG.duration(k.average7)}</span></div>
-    <div class="barres" role="img" aria-label="Temps de révision des 7 derniers jours : ${spoken}. Minimum : ${CG.duration(k.dailyMin)}.">
+    <div class="barres" role="img" aria-label="Temps de ${subject} des 7 derniers jours : ${spoken}. Minimum : ${CG.duration(k.dailyMin)}.">
       <div class="repere" style="bottom:${line}px"></div>${bars}
     </div>
     <div class="jours" aria-hidden="true">${labels}</div>
@@ -850,10 +942,254 @@ function revisionChange(event) {
   return true;
 }
 
+// reading.js : l'onglet Lecture (ce qui s'affiche et ce que font les boutons).
+// Le calcul est dans calc.js ; l'anneau du jour et les barres des 7 jours viennent de revision.js (todayBlock, weekBlock).
+
+const READ_QUICK_MINUTES = [15, 20, 30, 45, 60];
+const COVERS = [
+  ["#1E7B4B", "#FFFFFF"],
+  ["#D9CDB8", "#1B2430"],
+  ["#1B2430", "#FFFFFF"],
+  ["#E0701A", "#1B2430"],
+];
+
+function loadReading() {
+  const fresh = JSON.parse(JSON.stringify(CG.DEFAULT_READING));
+  return Object.assign(fresh, read(STORE.reading, {}));
+}
+
+function saveReading() {
+  write(STORE.reading, state.reading);
+}
+
+function coverColors(book) {
+  return COVERS[Math.abs(Number(book.id)) % COVERS.length];
+}
+
+function currentBooks() {
+  return state.reading.books.filter((b) => b.status === "reading");
+}
+
+// Prépare les formulaires « Noter ma lecture » et « Ajouter un livre » s'ils n'existent pas encore.
+function ensureReadingForms(today) {
+  const reading = currentBooks();
+  if (!state.readLog) state.readLog = { bookId: null, minutes: 20, date: CG.toIso(today), page: "" };
+  if (!state.bookDraft) state.bookDraft = { title: "", pages: "" };
+  if (!reading.some((b) => b.id === state.readLog.bookId)) state.readLog.bookId = reading.length ? reading[0].id : null;
+}
+
+/* ---------- Les blocs de l'écran ---------- */
+
+function readingView(today) {
+  const k = CG.readingIndicators(state.reading, today);
+  ensureReadingForms(today);
+  return [readingHeader(today), todayBlock(k, "lecture"), weekBlock(k, "lecture"), readLogBlock(k, today), libraryBlock(k), readingIndicatorsBlock(k), readingSettings()].join("");
+}
+
+function readingHeader(today) {
+  return `<header><div class="mois">${esc(longDate(CG.toIso(today)))}</div><h1>Lecture</h1></header>`;
+}
+
+function readLogBlock(k, today) {
+  const log = state.readLog;
+  const reading = currentBooks();
+  const todayIso = CG.toIso(today);
+  const book = reading.find((b) => b.id === log.bookId);
+  const chips = reading.map((b) => `<button type="button" class="puce" data-action="bookchoose" data-id="${b.id}" aria-pressed="${log.bookId === b.id}">${esc(b.title)}</button>`).join("");
+  const quick = READ_QUICK_MINUTES.map((m) => `<button type="button" class="puce petite" data-action="rdsetmin" data-value="${m}" aria-pressed="${log.minutes === m}">${CG.duration(m)}</button>`).join("");
+  let lines = "";
+  if (log.date === todayIso) {
+    const after = k.todayMinutes + log.minutes;
+    const reached = after >= k.dailyMin;
+    lines = `<div class="${reached ? "bon" : "petit"}">Avec cette lecture : ${CG.duration(after)} aujourd'hui, ${reached ? "objectif atteint." : "encore " + CG.duration(k.dailyMin - after) + "."}</div>`;
+  }
+  return `
+  <section class="carte">
+    <h2>Noter ma lecture</h2>
+    ${
+      reading.length
+        ? `<div class="puces" role="group" aria-label="Livre">${chips}</div>`
+        : `<div class="petit">Aucun livre en cours : ta lecture sera notée sans livre. Ajoute un livre dans « Ma bibliothèque » pour suivre ta progression.</div>`
+    }
+    <div class="duree">
+      <button type="button" class="rond clair" data-action="rdmin" data-delta="-5" aria-label="Retirer 5 minutes"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M5 12h14"></path></svg></button>
+      <div class="gros-moyen">${CG.duration(log.minutes)}</div>
+      <button type="button" class="rond" data-action="rdmin" data-delta="5" aria-label="Ajouter 5 minutes"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></button>
+    </div>
+    <div class="puces centree" role="group" aria-label="Durées rapides">${quick}</div>
+    ${book ? `<label class="champ">Page atteinte (facultatif, pour calculer ta vitesse)<input id="rl-page" type="text" inputmode="numeric" placeholder="Page ${book.page} actuellement" value="${esc(log.page)}"></label>` : ""}
+    <label class="champ">Date<input id="rl-date" type="date" max="${todayIso}" value="${esc(log.date)}"></label>
+    ${lines ? `<div class="consequence">${lines}</div>` : ""}
+    ${state.readMessage ? `<div class="message">${esc(state.readMessage)}</div>` : ""}
+    <button type="button" class="bouton" data-action="rdsave">Enregistrer</button>
+    ${state.readConfirmation ? `<div class="confirmation">${esc(state.readConfirmation)}</div>` : ""}
+  </section>`;
+}
+
+function libraryBlock(k) {
+  const done = k.books.filter((b) => b.status === "done");
+  const reading = k.books.filter((b) => b.status === "reading");
+  const shelf = done
+    .slice(-4)
+    .reverse()
+    .map((b) => {
+      const [background, color] = coverColors(b);
+      return `<div class="tuile"><div class="couv" style="background:${background};color:${color}">${esc(b.title)}</div><button type="button" class="supprimer" data-action="bookdel" data-id="${b.id}" aria-label="Supprimer ${esc(b.title)}">Supprimer</button></div>`;
+    })
+    .join("");
+  const rows = reading
+    .map((b) => {
+      const [background] = coverColors(b);
+      const forecast =
+        b.timeLeft !== null
+          ? `<div class="petit">Reste environ ${CG.duration(b.timeLeft)} de lecture${b.daysToFinish !== null ? ", soit " + b.daysToFinish + " jour" + (b.daysToFinish > 1 ? "s" : "") + " à ton rythme" : ""}.</div>`
+          : `<div class="petit">Note la page atteinte pour voir le temps restant.</div>`;
+      return `
+      <div class="livre-en-cours">
+        <div class="mini-couv" aria-hidden="true" style="background:${background}"></div>
+        <div class="livre-infos">
+          <div class="ligne base"><strong>${esc(b.title)}</strong><span class="petit">En cours</span></div>
+          <div class="piste fine" role="img" aria-label="${Math.round(b.percent)} % du livre lu"><div class="remplissage" style="width:${Math.min(100, Math.round(b.percent))}%"></div></div>
+          <div class="petit">Page ${b.page} sur ${b.pages}</div>
+          ${forecast}
+          <div class="actions-livre">
+            <button type="button" class="lien" data-action="bookfinish" data-id="${b.id}">Marquer comme terminé</button>
+            <button type="button" class="supprimer" data-action="bookdel" data-id="${b.id}" aria-label="Supprimer ${esc(b.title)}">Supprimer</button>
+          </div>
+        </div>
+      </div>`;
+    })
+    .join("");
+  const draft = state.bookDraft;
+  return `
+  <section class="carte">
+    <div class="ligne base"><h2>Ma bibliothèque</h2><span class="petit">${k.booksRead} livre${k.booksRead > 1 ? "s" : ""} lu${k.booksRead > 1 ? "s" : ""}</span></div>
+    ${shelf ? `<div class="etagere">${shelf}</div>` : ""}
+    ${rows}
+    ${!shelf && !rows ? `<div class="petit">Ta bibliothèque est vide. Ajoute le livre que tu lis en ce moment.</div>` : ""}
+    <div class="consequence">
+      <h2>Ajouter un livre</h2>
+      <label class="champ">Titre<input id="b-title" type="text" value="${esc(draft.title)}" placeholder="Les Heures bleues" autocomplete="off"></label>
+      <label class="champ">Nombre de pages<input id="b-pages" type="text" inputmode="numeric" value="${esc(draft.pages)}" placeholder="320"></label>
+      <button type="button" class="bouton clair" data-action="bookadd">Ajouter ce livre</button>
+      ${state.bookMessage ? `<div class="message">${esc(state.bookMessage)}</div>` : ""}
+    </div>
+  </section>`;
+}
+
+function readingIndicatorsBlock(k) {
+  const above = k.monthAboveMinimum;
+  const monthNote = above === 0 ? "Pile ton minimum" : above > 0 ? CG.duration(above) + " de plus que ton minimum" : CG.duration(-above) + " de moins que ton minimum";
+  return `
+  <h2 style="margin: 4px 0 -2px 4px">Indicateurs</h2>
+  <div class="grille">
+    <section class="carte"><h3>Lu ce mois-ci</h3><div class="chiffre">${CG.duration(k.monthMinutes)}</div>
+      <div class="petit ${above >= 0 ? "bon" : "mauvais"}">${monthNote}</div></section>
+    <section class="carte"><h3>Meilleure série</h3><div class="chiffre">${k.bestStreak} jour${k.bestStreak > 1 ? "s" : ""}</div>
+      <div class="petit">Série en cours : ${k.streak} jour${k.streak > 1 ? "s" : ""}</div></section>
+    <section class="carte"><h3>Vitesse de lecture</h3><div class="chiffre">${k.speed ? Math.round(k.speed) + " p/h" : "—"}</div>
+      <div class="petit">${k.speed ? "pages par heure" : "Note la page atteinte pour la calculer"}</div></section>
+    <section class="carte"><h3>Livres lus</h3><div class="chiffre">${k.booksRead}</div>
+      <div class="petit">au total</div></section>
+  </div>`;
+}
+
+function readingSettings() {
+  return `
+  <section class="carte">
+    <details ${state.settingsOpen ? "open" : ""}><summary>Mon objectif de lecture</summary>
+      <div class="budgets">
+        <label class="champ">Minimum par jour (en minutes)<input type="text" inputmode="numeric" data-read="daily" value="${state.reading.dailyMin}"></label>
+      </div>
+    </details>
+  </section>`;
+}
+
+/* ---------- Ce que font les boutons ---------- */
+
+// Recopie ce qui est tapé dans les champs avant de redessiner l'écran.
+function syncReadingForms() {
+  const fields = { "rl-date": ["readLog", "date"], "rl-page": ["readLog", "page"], "b-title": ["bookDraft", "title"], "b-pages": ["bookDraft", "pages"] };
+  Object.keys(fields).forEach((id) => {
+    const element = document.getElementById(id);
+    const [object, key] = fields[id];
+    if (element && state[object]) state[object][key] = element.value;
+  });
+}
+
+// Renvoie true si l'action concerne la lecture (et a été traitée).
+function readingClick(action, button) {
+  const actions = ["bookchoose", "rdmin", "rdsetmin", "rdsave", "bookadd", "bookfinish", "bookdel"];
+  if (!actions.includes(action)) return false;
+  syncReadingForms();
+  state.readMessage = "";
+  state.readConfirmation = "";
+  state.bookMessage = "";
+  const data = state.reading;
+  const log = state.readLog;
+
+  if (action === "bookchoose") log.bookId = Number(button.dataset.id);
+  else if (action === "rdmin") log.minutes = Math.min(600, Math.max(5, log.minutes + Number(button.dataset.delta)));
+  else if (action === "rdsetmin") log.minutes = Number(button.dataset.value);
+  else if (action === "rdsave") {
+    if (!log.date) state.readMessage = "Choisis une date.";
+    else {
+      const book = data.books.find((b) => b.id === log.bookId);
+      let pagesRead = 0;
+      const target = parseInt(log.page, 10);
+      if (book && target > book.page) {
+        pagesRead = target - book.page;
+        book.page = Math.min(book.pages, target);
+        if (book.page >= book.pages) book.status = "done";
+      }
+      data.sessions.push({ id: Date.now(), bookId: book ? book.id : null, minutes: log.minutes, date: log.date, pages: pagesRead });
+      log.page = "";
+      saveReading();
+      state.readConfirmation = "Lecture enregistrée." + (book && book.status === "done" ? " Livre terminé, bravo !" : "");
+    }
+  } else if (action === "bookadd") {
+    const title = state.bookDraft.title.trim();
+    const pages = parseInt(state.bookDraft.pages, 10);
+    if (!title) state.bookMessage = "Entre le titre du livre.";
+    else if (!(pages > 0)) state.bookMessage = "Entre le nombre de pages.";
+    else {
+      data.books.push({ id: Date.now(), title, pages, page: 0, status: "reading" });
+      state.bookDraft = { title: "", pages: "" };
+      saveReading();
+    }
+  } else if (action === "bookfinish") {
+    const book = data.books.find((b) => String(b.id) === button.dataset.id);
+    if (book) {
+      book.status = "done";
+      book.page = book.pages;
+      saveReading();
+    }
+  } else if (action === "bookdel") {
+    if (window.confirm("Supprimer ce livre ? Tes sessions déjà notées restent enregistrées.")) {
+      data.books = data.books.filter((b) => String(b.id) !== button.dataset.id);
+      saveReading();
+    }
+  }
+  render();
+  return true;
+}
+
+// Réglage modifié (minimum par jour). Renvoie true si c'est un réglage de lecture.
+function readingChange(event) {
+  if (event.target.dataset.read !== "daily") return false;
+  const value = parseInt(event.target.value, 10);
+  if (value > 0) {
+    state.reading.dailyMin = value;
+    saveReading();
+  }
+  render();
+  return true;
+}
+
 // app.js : ce qui s'affiche à l'écran, et ce qui se passe quand je touche un bouton.
 // Le calcul est dans calc.js (objet CG) ; ici on ne fait qu'afficher et enregistrer.
 
-const STORE = { budgets: "cg.budgets", expenses: "cg.expenses", revision: "cg.revision" };
+const STORE = { budgets: "cg.budgets", expenses: "cg.expenses", revision: "cg.revision", reading: "cg.reading" };
 
 // Les données sont gardées dans le navigateur (localStorage). Si c'est bloqué, l'appli marche quand même.
 function read(key, fallback) {
@@ -877,7 +1213,8 @@ const state = {
   budgets: Object.assign({}, CG.DEFAULT_BUDGETS, read(STORE.budgets, {})),
   expenses: read(STORE.expenses, []),
   revision: loadRevision(), // défini dans revision.js
-  tab: "budget", // onglet affiché : "budget" ou "revision"
+  reading: loadReading(), // défini dans reading.js
+  tab: "budget", // onglet affiché : "budget", "revision" ou "lecture"
   log: null, // formulaire « Noter ma session »
   examDraft: null, // formulaire « Ajouter un DS »
   revMessage: "",
@@ -1052,6 +1389,7 @@ function navBlock() {
   const tabs = [
     { id: "budget", label: "Budget", icon: '<path d="M3 7h15a3 3 0 0 1 3 3v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z M3 7l12-3v3 M16 14h2"></path>' },
     { id: "revision", label: "Révision", icon: '<path d="M2.5 9 12 4.5 21.5 9 12 13.5z M6.5 11.2v4.3c0 1.4 2.5 2.9 5.5 2.9s5.5-1.5 5.5-2.9v-4.3 M21.5 9v5.5"></path>' },
+    { id: "lecture", label: "Lecture", icon: '<path d="M4 5h6a3 3 0 0 1 2 1v14a3 3 0 0 0-2-1H4z M20 5h-6a3 3 0 0 0-2 1v14a3 3 0 0 1 2-1h6z"></path>' },
   ];
   const buttons = tabs
     .map((tab) => {
@@ -1069,6 +1407,8 @@ function render() {
   const content =
     state.tab === "revision"
       ? revisionView(today)
+      : state.tab === "lecture"
+      ? readingView(today)
       : [headerBlock(today), summaryBlock(k), categoriesBlock(k), addBlock(), draftBlock(k, today), indicatorsBlock(k), lastExpensesBlock(today), settingsBlock()].join("");
   app.innerHTML = content + navBlock();
 }
@@ -1164,7 +1504,7 @@ function saveExpense() {
 }
 
 function exportData() {
-  const data = JSON.stringify({ budgets: state.budgets, expenses: state.expenses, revision: state.revision }, null, 2);
+  const data = JSON.stringify({ budgets: state.budgets, expenses: state.expenses, revision: state.revision, reading: state.reading }, null, 2);
   const link = document.createElement("a");
   link.href = URL.createObjectURL(new Blob([data], { type: "application/json" }));
   link.download = "mes-depenses-" + CG.toIso(new Date()) + ".json";
@@ -1175,6 +1515,7 @@ app.addEventListener("click", (event) => {
   const button = event.target.closest("[data-action]");
   if (!button) return;
   const action = button.dataset.action;
+  if (readingClick(action, button)) return; // boutons de l'onglet Lecture (reading.js)
   if (revisionClick(action, button)) return; // boutons de l'onglet Révision (revision.js)
   if (action === "tab") {
     state.tab = button.dataset.tab;
@@ -1219,6 +1560,7 @@ app.addEventListener("toggle", (event) => {
 }, true);
 
 app.addEventListener("change", (event) => {
+  if (readingChange(event)) return;
   if (revisionChange(event)) return; // réglages de l'onglet Révision (revision.js)
   const name = event.target.dataset.budget;
   if (!name) return;
@@ -1231,6 +1573,7 @@ app.addEventListener("change", (event) => {
 });
 
 render();
+
 </script>
 </body>
 </html>
