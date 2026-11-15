@@ -1994,6 +1994,11 @@ app.addEventListener("change", (event) => {
 
 render();
 
+// Mode hors-ligne : le fichier sw.js garde une copie de l'appli pour l'ouvrir sans internet.
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
+}
+
 </script>
 </body>
 </html>
