@@ -322,6 +322,20 @@ html, body { overflow-x: hidden; }
 
 html, body { min-height: 100vh; touch-action: pan-y; overscroll-behavior-x: none; }
 
+/* Champs date : sur iPhone ils débordaient du cadre */
+input[type="date"] {
+  -webkit-appearance: none;
+  appearance: none;
+  display: block;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  line-height: normal;
+  text-align: left;
+}
+input[type="date"]::-webkit-date-and-time-value { text-align: left; min-height: 1.2em; }
+input[type="date"]::-webkit-calendar-picker-indicator { margin: 0; }
+
 /* Glisser au doigt comme sur Instagram : la page suit le doigt, la voisine arrive à côté */
 #app { position: relative; }
 .voisine { position: absolute; left: 20px; right: 20px; pointer-events: none; will-change: transform; }
