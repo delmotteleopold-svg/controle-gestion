@@ -347,6 +347,20 @@ input[type="date"]::-webkit-calendar-picker-indicator { margin: 0; }
 .ds-chiffre.urgent { color: var(--orange-texte); }
 .ds-unite { font-size: 14px; color: var(--discret); margin-left: 8px; }
 
+/* Recommandations de livres */
+.reco-carte { position: relative; touch-action: pan-y; cursor: grab; user-select: none; -webkit-user-select: none; will-change: transform; display: flex; flex-direction: column; gap: 10px; padding: 16px; border-radius: 20px; background: var(--fond); }
+.reco-haut { display: flex; gap: 14px; align-items: flex-start; }
+.reco-couv { flex: none; width: 84px; height: 124px; border-radius: 10px; object-fit: cover; background: var(--piste); }
+.reco-titre { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.reco-desc { max-height: 8em; overflow: hidden; }
+.reco-boutons { justify-content: center; gap: 32px; }
+.reco-boutons .rond { width: 56px; height: 56px; border-radius: 28px; }
+.reco-carte[data-side="yes"] { outline: 3px solid var(--vert); }
+.reco-carte[data-side="no"] { outline: 3px solid var(--orange); }
+.reco-carte[data-side]::after { position: absolute; top: 12px; right: 14px; padding: 4px 10px; border-radius: 12px; font-size: 13px; font-weight: 600; background: #fff; }
+.reco-carte[data-side="yes"]::after { content: "Intéressé"; color: var(--vert-texte); }
+.reco-carte[data-side="no"]::after { content: "Pas pour moi"; color: var(--orange-texte); }
+
 /* Glisser au doigt comme sur Instagram : la page suit le doigt, la voisine arrive à côté */
 #app { position: relative; }
 .voisine { position: absolute; left: 20px; right: 20px; pointer-events: none; will-change: transform; }
@@ -1168,7 +1182,7 @@ function ensureReadingForms(today) {
 function readingView(today) {
   const k = CG.readingIndicators(state.reading, today);
   ensureReadingForms(today);
-  return [readingHeader(today), todayBlock(k, "lecture"), weekBlock(k, "lecture"), readLogBlock(k, today), libraryBlock(k), readingIndicatorsBlock(k), readingSettings()].join("");
+  return [readingHeader(today), todayBlock(k, "lecture"), weekBlock(k, "lecture"), readLogBlock(k, today), libraryBlock(k), recoBlock(), readingIndicatorsBlock(k), readingSettings()].join("");
 }
 
 function readingHeader(today) {
@@ -1446,6 +1460,363 @@ function gcalChange(event) {
   return true;
 }
 
+// reco.js : recommandations de livres avec Google Livres.
+// L'appli apprend ce que j'aime : mes livres de la bibliothèque, mes thèmes, et mes swipes
+// (droite = intéressé, gauche = pas pour moi). Puis elle cherche des livres proches de mes goûts.
+// Rien n'est envoyé à Google à part les mots de la recherche (auteur, thème, titre).
+
+// [nom affiché, catégorie Google Livres]
+const RECO_THEMES = [
+  ["Développement personnel", "Self-Help"],
+  ["Business", "Business & Economics"],
+  ["Finance", "Finance"],
+  ["Entrepreneuriat", "Entrepreneurship"],
+  ["Marketing", "Marketing"],
+  ["Psychologie", "Psychology"],
+  ["Philosophie", "Philosophy"],
+  ["Histoire", "History"],
+  ["Sciences", "Science"],
+  ["Roman", "Fiction"],
+  ["Science-fiction", "Science Fiction"],
+  ["Biographies", "Biography & Autobiography"],
+];
+
+function loadReco() {
+  const saved = read(STORE.reco, {});
+  const weights = saved.weights || {};
+  return {
+    liked: saved.liked || [], // livres « intéressé » : ma liste À lire
+    disliked: saved.disliked || [], // identifiants des livres refusés
+    weights: { authors: weights.authors || {}, cats: weights.cats || {} }, // ce que j'aime (points par auteur et par catégorie)
+    lang: saved.lang || "fr",
+    page: 0,
+    deck: [], // les livres proposés, le premier est la carte affichée
+    loading: false,
+    message: "",
+    query: "",
+    autoTried: false,
+  };
+}
+
+function saveReco() {
+  const r = state.reco;
+  write(STORE.reco, { liked: r.liked, disliked: r.disliked.slice(-500), weights: r.weights, lang: r.lang });
+}
+
+/* ---------- Google Livres ---------- */
+
+// Transforme un livre Google en petit objet. En mode strict, il faut un auteur et un nombre de pages.
+function parseVolume(item, strict) {
+  const v = item.volumeInfo || {};
+  if (!v.title || !v.authors || !v.authors.length) return null;
+  if (strict && !(v.pageCount > 0)) return null;
+  const image = v.imageLinks && (v.imageLinks.thumbnail || v.imageLinks.smallThumbnail);
+  return {
+    id: item.id,
+    title: v.title,
+    authors: v.authors,
+    pages: v.pageCount || 0,
+    categories: (v.categories || []).map((c) => c.split(" / ")[0]),
+    description: String(v.description || "").replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim(),
+    thumb: image ? image.replace("http://", "https://") : "",
+    rating: v.averageRating || 0,
+  };
+}
+
+async function booksFetch(q, startIndex, loose) {
+  const url =
+    "https://www.googleapis.com/books/v1/volumes?q=" + encodeURIComponent(q) +
+    "&maxResults=20&printType=books&orderBy=relevance&langRestrict=" + state.reco.lang +
+    "&startIndex=" + (startIndex || 0);
+  const response = await fetch(url);
+  if (!response.ok) throw new Error(response.status === 429 ? "Google Livres est occupé, réessaie dans un instant." : "Google Livres n'a pas répondu (code " + response.status + ").");
+  const data = await response.json();
+  return (data.items || []).map((item) => parseVolume(item, !loose)).filter(Boolean);
+}
+
+/* ---------- L'algorithme de goûts ---------- */
+
+// Ajoute des points d'affinité à des auteurs et à des catégories (négatifs si je n'aime pas).
+function recoLearn(authors, categories, authorPoints, categoryPoints) {
+  const w = state.reco.weights;
+  authors.slice(0, 2).forEach((a) => { w.authors[a] = (w.authors[a] || 0) + authorPoints; });
+  categories.slice(0, 2).forEach((c) => { w.cats[c] = (w.cats[c] || 0) + categoryPoints; });
+}
+
+// Note d'un livre : somme des points de ses auteurs et de ses catégories, plus un petit bonus pour les bonnes notes.
+function recoScore(book) {
+  const w = state.reco.weights;
+  let score = 0;
+  book.authors.forEach((a) => { score += w.authors[a] || 0; });
+  book.categories.forEach((c) => {
+    Object.keys(w.cats).forEach((key) => {
+      if (plain(c).includes(plain(key)) || plain(key).includes(plain(c))) score += w.cats[key];
+    });
+  });
+  return score + book.rating * 0.3;
+}
+
+// Les recherches à lancer : mes 2 auteurs préférés et mes 3 catégories préférées.
+function recoQueries() {
+  const w = state.reco.weights;
+  const top = (obj, min, n) => Object.entries(obj).filter(([, v]) => v >= min).sort((a, b) => b[1] - a[1]).slice(0, n).map(([k]) => k);
+  return top(w.authors, 2, 2).map((a) => 'inauthor:"' + a.replace(/"/g, "") + '"').concat(top(w.cats, 1, 3).map((c) => 'subject:"' + c.replace(/"/g, "") + '"'));
+}
+
+// Livres déjà vus, déjà dans ma liste ou déjà dans ma bibliothèque : on ne les repropose pas.
+function recoSeen() {
+  const r = state.reco;
+  const ids = new Set(r.liked.map((b) => b.id).concat(r.disliked));
+  const titles = new Set(state.reading.books.map((b) => plain(b.title)));
+  return (book) => ids.has(book.id) || titles.has(plain(book.title));
+}
+
+// Apprend de ma bibliothèque : pour chaque livre (5 à la fois), on retrouve son auteur et sa catégorie sur Google Livres.
+async function enrichLibrary() {
+  const books = state.reading.books.filter((b) => !b.metaTried && b.title).slice(0, 5);
+  for (const book of books) {
+    book.metaTried = true;
+    try {
+      const found = await booksFetch('intitle:"' + book.title.replace(/"/g, "") + '"', 0, true);
+      if (found[0]) {
+        book.meta = { authors: found[0].authors, categories: found[0].categories };
+        recoLearn(found[0].authors, found[0].categories, 2, 1);
+      }
+    } catch (error) {
+      book.metaTried = false; // on réessaiera plus tard
+      break;
+    }
+  }
+  saveReading();
+}
+
+// Cherche des livres. Sans mot de recherche : d'après mes goûts. Avec un mot : ma recherche.
+async function recoRefill(searchQuery) {
+  const r = state.reco;
+  if (r.loading) return;
+  r.loading = true;
+  r.message = "";
+  render();
+  try {
+    await enrichLibrary();
+    const queries = searchQuery ? [searchQuery] : recoQueries();
+    if (!queries.length) {
+      r.deck = [];
+      r.message = "Choisis d'abord quelques thèmes ci-dessus.";
+    } else {
+      const start = searchQuery ? 0 : r.page * 20;
+      const lists = await Promise.all(queries.map((q) => booksFetch(q, start)));
+      const seen = recoSeen();
+      const byTitle = new Map();
+      [].concat(...lists).forEach((b) => {
+        const key = plain(b.title);
+        if (!seen(b) && !byTitle.has(key)) byTitle.set(key, b);
+      });
+      let deck = [...byTitle.values()].map((b) => ({ ...b, score: recoScore(b) })).filter((b) => b.score > -2);
+      if (!searchQuery) deck.sort((a, b) => b.score - a.score);
+      r.deck = deck.slice(0, 25);
+      if (!searchQuery) r.page = r.deck.length ? r.page + 1 : 0;
+      if (!r.deck.length) r.message = "Rien de nouveau trouvé. Essaie un autre thème ou une recherche.";
+    }
+  } catch (error) {
+    r.message = error instanceof TypeError ? "Pas de connexion à Google Livres. Vérifie ton réseau." : error.message;
+  }
+  r.loading = false;
+  saveReco();
+  render();
+}
+
+function recoSearch() {
+  const field = document.getElementById("reco-q");
+  const q = (field ? field.value : state.reco.query).trim();
+  state.reco.query = q;
+  if (!q) {
+    state.reco.message = "Tape un titre, un auteur ou un thème.";
+    render();
+    return;
+  }
+  recoRefill(q);
+}
+
+// À l'arrivée sur l'onglet Lecture : première recherche automatique si l'appli connaît déjà mes goûts.
+function recoAutoLoad() {
+  const r = state.reco;
+  if (r.autoTried || r.loading || r.deck.length) return;
+  const known = recoQueries().length > 0 || state.reading.books.some((b) => !b.metaTried && b.title);
+  if (!known) return;
+  r.autoTried = true;
+  recoRefill();
+}
+
+// Swipe d'une carte : droite = intéressé (dans ma liste À lire), gauche = pas pour moi.
+function recoSwipe(decision) {
+  const r = state.reco;
+  const book = r.deck.shift();
+  if (!book) return;
+  if (decision === "yes") {
+    r.liked.unshift({ id: book.id, title: book.title, authors: book.authors, pages: book.pages, categories: book.categories });
+    recoLearn(book.authors, book.categories, 2, 1);
+  } else {
+    r.disliked.push(book.id);
+    recoLearn(book.authors, book.categories, -1, -1);
+  }
+  saveReco();
+  if (r.deck.length) render();
+  else recoRefill();
+}
+
+/* ---------- L'écran ---------- */
+
+function recoBlock() {
+  const r = state.reco;
+  const themes = RECO_THEMES.map(([label, key]) => `<button type="button" class="puce petite" data-action="recotheme" data-theme="${esc(key)}" aria-pressed="${(r.weights.cats[key] || 0) > 0}">${esc(label)}</button>`).join("");
+  const langs = [["fr", "Français"], ["en", "English"]].map(([code, label]) => `<button type="button" class="puce petite" data-action="recolang" data-lang="${code}" aria-pressed="${r.lang === code}">${label}</button>`).join("");
+  const book = r.deck[0];
+  let main;
+  if (r.loading) {
+    main = `<div class="petit centre">Je cherche des livres pour toi…</div>`;
+  } else if (book) {
+    const text = book.description.length > 240 ? book.description.slice(0, 240).trim() + "…" : book.description;
+    const kind = book.categories[0] ? " · " + esc(book.categories[0]) : "";
+    main = `
+    <div class="reco-carte" role="group" aria-label="${esc(book.title)}">
+      <div class="reco-haut">
+        ${book.thumb ? `<img class="reco-couv" src="${esc(book.thumb)}" alt="" draggable="false">` : `<div class="reco-couv"></div>`}
+        <div class="reco-titre">
+          <strong>${esc(book.title)}</strong>
+          <div class="petit">${esc(book.authors.join(", "))}</div>
+          <div class="petit">${book.pages} pages${kind}</div>
+        </div>
+      </div>
+      ${text ? `<div class="petit reco-desc">${esc(text)}</div>` : ""}
+    </div>
+    <div class="ligne reco-boutons">
+      <button type="button" class="rond clair" data-action="recono" aria-label="Pas pour moi"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"></path></svg></button>
+      <button type="button" class="rond" data-action="recoyes" aria-label="Intéressé"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20s-7-4.5-7-10a4 4 0 0 1 7-2.5A4 4 0 0 1 19 10c0 5.5-7 10-7 10z"></path></svg></button>
+    </div>
+    <div class="petit centre">Glisse à droite si ça t'intéresse, à gauche sinon. ${r.deck.length} proposition${r.deck.length > 1 ? "s" : ""}.</div>`;
+  } else {
+    main = `<div class="petit">${r.message ? esc(r.message) : "Choisis quelques thèmes, puis lance la recherche."}</div>
+    <button type="button" class="bouton clair" data-action="recoload">Me proposer des livres</button>`;
+  }
+  const message = book && r.message ? `<div class="message">${esc(r.message)}</div>` : "";
+  const liked = r.liked.slice(0, 6).map((b) => `
+    <div class="depense">
+      <div><div class="nom">${esc(b.title)}</div><div class="petit">${esc(b.authors.join(", "))} · ${b.pages} pages</div></div>
+      <div class="colonne-droite">
+        <button type="button" class="lien" data-action="recostart" data-id="${esc(b.id)}">Commencer</button>
+        <button type="button" class="supprimer" data-action="recodrop" data-id="${esc(b.id)}">Retirer</button>
+      </div>
+    </div>`).join("");
+  return `
+  <section class="carte">
+    <div class="ligne base"><h2>Recommandations</h2><span class="petit">Selon tes goûts</span></div>
+    <div class="saisie">
+      <input id="reco-q" type="text" aria-label="Chercher un livre, un auteur ou un thème" placeholder="Livre, auteur ou thème" value="${esc(r.query)}" autocomplete="off">
+      <button type="button" class="rond" data-action="recosearch" aria-label="Chercher">${arrowIcon}</button>
+    </div>
+    ${message}
+    ${main}
+    <div class="consequence">
+      <h2>Mes thèmes</h2>
+      <div class="puces" role="group" aria-label="Thèmes">${themes}</div>
+      <div class="puces" role="group" aria-label="Langue des livres">${langs}</div>
+    </div>
+    ${liked ? `<div class="consequence"><h2>À lire plus tard</h2>${liked}</div>` : ""}
+  </section>`;
+}
+
+// Renvoie true si l'action concerne les recommandations.
+function recoClick(action, button) {
+  const actions = ["recoyes", "recono", "recotheme", "recolang", "recosearch", "recoload", "recostart", "recodrop"];
+  if (!actions.includes(action)) return false;
+  const r = state.reco;
+  if (action === "recoyes") recoSwipe("yes");
+  else if (action === "recono") recoSwipe("no");
+  else if (action === "recotheme") {
+    const key = button.dataset.theme;
+    r.weights.cats[key] = (r.weights.cats[key] || 0) > 0 ? 0 : 3;
+    saveReco();
+    render();
+  } else if (action === "recolang") {
+    r.lang = button.dataset.lang;
+    r.page = 0;
+    r.deck = [];
+    saveReco();
+    recoRefill();
+  } else if (action === "recosearch") recoSearch();
+  else if (action === "recoload") {
+    r.page = 0;
+    recoRefill();
+  } else if (action === "recostart") {
+    const found = r.liked.find((b) => String(b.id) === button.dataset.id);
+    if (found) {
+      state.reading.books.push({ id: Date.now(), title: found.title, pages: found.pages, page: 0, status: "reading", meta: { authors: found.authors, categories: found.categories }, metaTried: true });
+      r.liked = r.liked.filter((b) => b !== found);
+      saveReading();
+      saveReco();
+    }
+    render();
+  } else if (action === "recodrop") {
+    r.liked = r.liked.filter((b) => String(b.id) !== button.dataset.id);
+    saveReco();
+    render();
+  }
+  return true;
+}
+
+/* ---------- Glisser la carte (comme Tinder) ---------- */
+
+let recoDrag = null;
+
+document.addEventListener("pointerdown", (e) => {
+  const card = e.target.closest && e.target.closest(".reco-carte");
+  if (!card || recoDrag) return;
+  if (e.pointerType === "mouse" && e.button !== 0) return;
+  recoDrag = { id: e.pointerId, card, x: e.clientX, y: e.clientY, dx: 0, moving: false, vx: 0, px: e.clientX, pt: Date.now() };
+});
+
+document.addEventListener("pointermove", (e) => {
+  const d = recoDrag;
+  if (!d || e.pointerId !== d.id) return;
+  const dx = e.clientX - d.x;
+  const dy = e.clientY - d.y;
+  if (!d.moving) {
+    if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
+    if (Math.abs(dy) > Math.abs(dx)) { recoDrag = null; return; } // geste vertical : on laisse défiler la page
+    d.moving = true;
+    document.body.classList.add("glisse");
+  }
+  const now = Date.now();
+  if (now > d.pt) d.vx = (e.clientX - d.px) / (now - d.pt);
+  d.px = e.clientX;
+  d.pt = now;
+  d.dx = dx;
+  d.card.style.transform = `translateX(${dx}px) rotate(${dx / 20}deg)`;
+  if (dx > 40) d.card.dataset.side = "yes";
+  else if (dx < -40) d.card.dataset.side = "no";
+  else delete d.card.dataset.side;
+});
+
+function endRecoDrag(e, cancelled) {
+  const d = recoDrag;
+  if (!d || e.pointerId !== d.id) return;
+  recoDrag = null;
+  if (!d.moving) return;
+  document.body.classList.remove("glisse");
+  const decision = !cancelled && (Math.abs(d.dx) > 100 || Math.abs(d.vx) > 0.6) ? (d.dx > 0 ? "yes" : "no") : null;
+  d.card.classList.add("suit");
+  if (decision) {
+    d.card.style.transform = `translateX(${decision === "yes" ? 500 : -500}px) rotate(${decision === "yes" ? 25 : -25}deg)`;
+    setTimeout(() => recoSwipe(decision), 220);
+  } else {
+    d.card.style.transform = "";
+    delete d.card.dataset.side;
+  }
+}
+document.addEventListener("pointerup", (e) => endRecoDrag(e, false));
+document.addEventListener("pointercancel", (e) => endRecoDrag(e, true));
+
 // home.js : l'écran d'accueil « Où j'en suis » avec les 3 anneaux (budget, révision, lecture).
 
 function homeRing(percent, color, label) {
@@ -1513,7 +1884,7 @@ function homeView(today) {
 // app.js : ce qui s'affiche à l'écran, et ce qui se passe quand je touche un bouton.
 // Le calcul est dans calc.js (objet CG) ; ici on ne fait qu'afficher et enregistrer.
 
-const STORE = { budgets: "cg.budgets", expenses: "cg.expenses", revision: "cg.revision", reading: "cg.reading" };
+const STORE = { budgets: "cg.budgets", expenses: "cg.expenses", revision: "cg.revision", reading: "cg.reading", reco: "cg.reco" };
 
 // Les données sont gardées dans le navigateur (localStorage). Si c'est bloqué, l'appli marche quand même.
 function read(key, fallback) {
@@ -1538,6 +1909,7 @@ const state = {
   expenses: read(STORE.expenses, []),
   revision: loadRevision(), // défini dans revision.js
   reading: loadReading(), // défini dans reading.js
+  reco: loadReco(), // défini dans reco.js
   tab: "accueil", // onglet affiché : "budget", "revision" ou "lecture"
   log: null, // formulaire « Noter ma session »
   examDraft: null, // formulaire « Ajouter un DS »
@@ -1762,6 +2134,7 @@ function render() {
   state.slide = "";
   app.innerHTML = `<div class="page${slide}">${pageContent(state.tab, today)}</div>` + navBlock().replace('class="barre"', `class="barre${slide ? " anime" : ""}"`);
   enhanceDates(app);
+  if (state.tab === "lecture") recoAutoLoad();
 }
 
 /* ---------- Glisser d'une rubrique à l'autre ---------- */
@@ -1816,7 +2189,7 @@ function applyDrag(dx) {
 document.addEventListener("pointerdown", (e) => {
   if (drag && drag.animating) return;
   if (e.pointerType === "mouse" && e.button !== 0) return;
-  if (e.target.closest && e.target.closest("input, textarea, select, .barre")) return;
+  if (e.target.closest && e.target.closest("input, textarea, select, .barre, .reco-carte")) return;
   drag = { id: e.pointerId, type: e.pointerType, x: e.clientX, y: e.clientY, mode: null, px: e.clientX, pt: Date.now(), vx: 0, shown: 0 };
 });
 
@@ -1966,7 +2339,7 @@ function saveExpense() {
 }
 
 function exportData() {
-  const data = JSON.stringify({ budgets: state.budgets, expenses: state.expenses, revision: state.revision, reading: state.reading }, null, 2);
+  const data = JSON.stringify({ budgets: state.budgets, expenses: state.expenses, revision: state.revision, reading: state.reading, reco: { liked: state.reco.liked, disliked: state.reco.disliked, weights: state.reco.weights } }, null, 2);
   const link = document.createElement("a");
   link.href = URL.createObjectURL(new Blob([data], { type: "application/json" }));
   link.download = "mes-depenses-" + CG.toIso(new Date()) + ".json";
@@ -1977,6 +2350,7 @@ app.addEventListener("click", (event) => {
   const button = event.target.closest("[data-action]");
   if (!button) return;
   const action = button.dataset.action;
+  if (recoClick(action, button)) return; // recommandations de livres (reco.js)
   if (readingClick(action, button)) return; // boutons de l'onglet Lecture (reading.js)
   if (revisionClick(action, button)) return; // boutons de l'onglet Révision (revision.js)
   if (action === "tab") {
@@ -2008,10 +2382,12 @@ app.addEventListener("click", (event) => {
 
 app.addEventListener("input", (event) => {
   if (event.target.id === "sentence") state.sentence = event.target.value;
+  if (event.target.id === "reco-q") state.reco.query = event.target.value;
 });
 
 app.addEventListener("keydown", (event) => {
   if (event.key === "Enter" && event.target.id === "sentence") readSentence();
+  if (event.key === "Enter" && event.target.id === "reco-q") recoSearch();
 });
 
 // Garde la section « Mes budgets » ouverte quand l'écran est redessiné.
