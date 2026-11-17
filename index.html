@@ -193,6 +193,9 @@ header { margin-bottom: 8px; }
 }
 .bouton.clair { background: #fff; color: var(--encre); border: 1.5px solid var(--encre); height: 48px; font-size: 15px; border-radius: 24px; }
 
+#sheets-status a { color: var(--encre); }
+.bouton:disabled { opacity: 0.6; }
+
 .consequence { padding-top: 12px; border-top: 1px solid var(--separation); display: flex; flex-direction: column; gap: 2px; }
 
 /* Indicateurs */
@@ -1460,6 +1463,245 @@ function gcalChange(event) {
   return true;
 }
 
+/* ---------- Copie pour mes agents (Google Sheets) ---------- */
+// sheets.js : l'appli écrit UNE COPIE de tes données dans un Google Sheets privé de ton Drive, pour que tes assistants
+// (Claude) puissent la lire. Sens unique : appli vers Sheets. Rien n'est jamais relu depuis Sheets, donc aucun conflit.
+// Droit demandé : « drive.file » = seulement les fichiers créés par cette appli (jamais le reste de ton Drive).
+// Le jeton Google reste en mémoire (il disparaît à la fermeture de l'appli) : il n'est jamais écrit dans le navigateur.
+// L'Agenda garde son propre droit (lecture seule) et son propre bouton : rien n'est changé de ce côté.
+
+const SHEETS_STORE = "cg.sheets"; // { id, url, lastSync } : où est le fichier et quand il a été mis à jour (hors sauvegarde)
+const SHEETS_SCOPE = "https://www.googleapis.com/auth/drive.file";
+const SHEETS_API = "https://sheets.googleapis.com/v4/spreadsheets";
+const SHEETS_TITLE = "Ma vie d'étudiant : copie pour mes agents";
+const SHEETS_LABEL = "Synchroniser avec Google Sheets";
+const SHEETS_SCHEMA = 1; // à augmenter si les onglets ou les colonnes changent un jour
+let sheetsToken = null; // { value, expires }
+let sheetsBusy = false;
+let sheetsTimer = null;
+let sheetsNotice = null; // { text, ok }
+
+function sheetsCell(value) {
+  if (value === undefined || value === null) return "";
+  if (typeof value === "number") return Number.isFinite(value) ? value : "";
+  return String(value).slice(0, 5000);
+}
+
+// Les onglets à écrire : { name, values } avec la ligne d'en-tête en premier. Onglet 0 = mode d'emploi pour les agents.
+function sheetsTabs(now) {
+  const when = now || new Date();
+  const pad = (n) => String(n).padStart(2, "0");
+  const byDate = (a, b) => String(a.date).localeCompare(String(b.date));
+  const books = state.reading.books || [];
+  const titleOf = (id) => {
+    const book = books.find((b) => b.id === id);
+    return book ? book.title : "";
+  };
+  const defs = [
+    ["Depenses", ["id", "date", "montant_eur", "categorie", "note"], state.expenses.slice().sort(byDate).map((e) => [e.id, e.date, e.amount, e.category, e.note])],
+    ["Budgets", ["categorie", "budget_mensuel_eur"], Object.keys(state.budgets).map((name) => [name, state.budgets[name]])],
+    ["Reglages", ["cle", "valeur"], [["objectif_revision_min_par_jour", state.revision.dailyMin], ["objectif_lecture_min_par_jour", state.reading.dailyMin]]],
+    ["Revision_cours", ["cours", "objectif_min_avant_ds"], state.revision.courses.map((c) => [c.name, c.goal])],
+    ["Revision_sessions", ["id", "date", "cours", "minutes"], state.revision.sessions.slice().sort(byDate).map((s) => [s.id, s.date, s.course, s.minutes])],
+    ["Revision_DS", ["id", "date", "cours", "source"], state.revision.exams.slice().sort(byDate).map((x) => [x.id, x.date, x.course, x.gcalId ? "agenda" : "manuel"])],
+    ["Lecture_livres", ["id", "titre", "pages", "page_actuelle", "statut"], books.map((b) => [b.id, b.title, b.pages, b.page, b.status])],
+    ["Lecture_sessions", ["id", "date", "livre_id", "livre", "minutes", "pages_lues"], state.reading.sessions.slice().sort(byDate).map((s) => [s.id, s.date, s.bookId, titleOf(s.bookId), s.minutes, s.pages])],
+    ["Livres_a_lire", ["id", "titre", "auteurs", "pages", "categories"], state.reco.liked.map((b) => [b.id, b.title, (b.authors || []).join(", "), b.pages, (b.categories || []).join(", ")])],
+  ];
+  const tabs = defs.map(([name, header, rows]) => ({ name, values: [header].concat(rows.map((row) => row.map(sheetsCell))) }));
+  const zone = (Intl.DateTimeFormat().resolvedOptions() || {}).timeZone || "";
+  const readme = [
+    ["Copie de « Ma vie d'étudiant » : LECTURE SEULE"],
+    ["Écrite par l'appli à chaque synchronisation. Ne la modifie pas : tes changements seraient écrasés."],
+    ["Sens unique : appli vers Sheets. Pour corriger une donnée, corrige-la dans l'appli."],
+    [""],
+    ["schema_version", SHEETS_SCHEMA],
+    ["derniere_synchro_utc", when.toISOString()],
+    ["derniere_synchro_locale", CG.toIso(when) + " " + pad(when.getHours()) + ":" + pad(when.getMinutes())],
+    ["fuseau", zone],
+    [""],
+    ["Formats : dates AAAA-MM-JJ (texte), montants en euros, durées en minutes. Un id de DS qui commence par g vient de Google Agenda."],
+    ["Contrôle : si le nombre de lignes d'un onglet n'est pas celui du tableau ci-dessous, la synchro a été interrompue : ne pas s'y fier."],
+    [""],
+    ["onglet", "lignes_attendues"],
+  ].concat(tabs.map((t) => [t.name, t.values.length - 1]));
+  return [{ name: "Lisez_moi", values: readme.map((row) => row.map(sheetsCell)) }].concat(tabs);
+}
+
+function sheetsFriendly(status, detail) {
+  const text = detail ? JSON.stringify(detail) : "";
+  if (status === 401) return "Ta session Google a expiré. Appuie de nouveau sur « Synchroniser ».";
+  if (status === 403 && /SERVICE_DISABLED|accessNotConfigured|has not been used|is disabled/i.test(text)) return "L'API Google Sheets n'est pas activée dans ton projet Google Cloud (guide, étape 1).";
+  if (status === 403 && /insufficient|scope/i.test(text)) return "Le droit d'accès aux fichiers créés par l'appli n'est pas accordé (guide, étape 2).";
+  if (status === 403) return "Google a refusé l'accès au fichier (code 403).";
+  if (status === 404) return "Fichier introuvable.";
+  if (status === 429) return "Google est occupé, réessaie dans une minute.";
+  return "Google a répondu par une erreur (code " + status + ").";
+}
+
+async function sheetsCall(token, method, url, body) {
+  let response;
+  try {
+    response = await fetch(url, {
+      method,
+      headers: Object.assign({ Authorization: "Bearer " + token }, body ? { "Content-Type": "application/json" } : {}),
+      body: body ? JSON.stringify(body) : undefined,
+    });
+  } catch (error) {
+    const lost = new Error("Pas de connexion à Google. Vérifie ton réseau.");
+    lost.code = 0;
+    throw lost;
+  }
+  if (response.ok) return response.json();
+  let detail = null;
+  try {
+    detail = (await response.json()).error;
+  } catch (error) {
+    /* pas de détail : le code suffit */
+  }
+  const failed = new Error(sheetsFriendly(response.status, detail));
+  failed.code = response.status;
+  throw failed;
+}
+
+function validSheetsToken() {
+  return sheetsToken && sheetsToken.expires > Date.now() + 60000 ? sheetsToken.value : "";
+}
+
+async function getSheetsToken(clientId) {
+  const known = validSheetsToken();
+  if (known) return known;
+  await loadGoogleScript();
+  return new Promise((resolve, reject) => {
+    const oauth = window.google.accounts.oauth2;
+    const client = oauth.initTokenClient({
+      client_id: clientId,
+      scope: SHEETS_SCOPE,
+      callback: (response) => {
+        if (!response || !response.access_token) return reject(new Error(response && response.error === "access_denied" ? "Autorisation refusée." : "Autorisation Google impossible (" + ((response && response.error) || "inconnue") + ")."));
+        if (typeof oauth.hasGrantedAllScopes === "function" && !oauth.hasGrantedAllScopes(response, SHEETS_SCOPE)) return reject(new Error("Le droit d'accéder aux fichiers créés par l'appli n'a pas été accordé. Recommence et laisse la case cochée."));
+        sheetsToken = { value: response.access_token, expires: Date.now() + (Number(response.expires_in) || 3600) * 1000 };
+        resolve(response.access_token);
+      },
+      error_callback: () => reject(new Error("Autorisation annulée.")),
+    });
+    client.requestAccessToken();
+  });
+}
+
+// Trouve le fichier de la copie (ou le crée), et ajoute les onglets qui manqueraient.
+async function sheetsEnsureFile(token, tabs) {
+  const info = read(SHEETS_STORE, {});
+  let replaced = false;
+  if (info && info.id) {
+    try {
+      const base = SHEETS_API + "/" + encodeURIComponent(info.id);
+      const meta = await sheetsCall(token, "GET", base + "?fields=spreadsheetUrl,sheets.properties.title");
+      const have = (meta.sheets || []).map((s) => s.properties.title);
+      const missing = tabs.map((t) => t.name).filter((name) => !have.includes(name));
+      if (missing.length) await sheetsCall(token, "POST", base + ":batchUpdate", { requests: missing.map((title) => ({ addSheet: { properties: { title } } })) });
+      return { id: info.id, url: meta.spreadsheetUrl || info.url || "", replaced };
+    } catch (error) {
+      if (error.code !== 404) throw error;
+      replaced = true; // le fichier a été supprimé de ton Drive : on en crée un nouveau
+    }
+  }
+  const zone = (Intl.DateTimeFormat().resolvedOptions() || {}).timeZone || "Europe/Paris";
+  const created = await sheetsCall(token, "POST", SHEETS_API + "?fields=spreadsheetId,spreadsheetUrl", {
+    properties: { title: SHEETS_TITLE, locale: "fr_FR", timeZone: zone },
+    sheets: tabs.map((t) => ({ properties: { title: t.name } })),
+  });
+  // On retient tout de suite l'emplacement : si l'écriture échoue ensuite, la prochaine synchro réutilisera ce fichier.
+  write(SHEETS_STORE, { id: created.spreadsheetId, url: created.spreadsheetUrl || "", lastSync: (info && info.lastSync) || "" });
+  return { id: created.spreadsheetId, url: created.spreadsheetUrl || "", replaced };
+}
+
+function sheetsStatusHtml() {
+  const info = read(SHEETS_STORE, {}) || {};
+  const parts = [];
+  if (sheetsNotice) parts.push(`<div class="${sheetsNotice.ok ? "confirmation" : "message"}">${esc(sheetsNotice.text)}</div>`);
+  if (info.lastSync && !Number.isNaN(Date.parse(info.lastSync))) {
+    const d = new Date(info.lastSync);
+    const pad = (n) => String(n).padStart(2, "0");
+    const link = typeof info.url === "string" && /^https:\/\/docs\.google\.com\//.test(info.url) ? ` · <a href="${esc(info.url)}" target="_blank" rel="noopener">Ouvrir le fichier</a>` : "";
+    parts.push(`<div class="petit">Dernière synchro : ${pad(d.getDate())}/${pad(d.getMonth() + 1)} à ${pad(d.getHours())}:${pad(d.getMinutes())}${link}</div>`);
+  } else {
+    parts.push(`<div class="petit">Pas encore synchronisé.</div>`);
+  }
+  return parts.join("");
+}
+
+// Met à jour la carte sans redessiner l'écran : une synchro en arrière-plan ne doit jamais effacer ce que tu es en train de taper.
+function refreshSheetsBlock(scroll) {
+  const status = document.getElementById("sheets-status");
+  if (status) status.innerHTML = sheetsStatusHtml();
+  const button = document.getElementById("sheets-btn");
+  if (button) {
+    button.disabled = sheetsBusy;
+    button.textContent = sheetsBusy ? "Synchronisation…" : SHEETS_LABEL;
+  }
+  if (scroll && status && status.scrollIntoView) status.scrollIntoView({ block: "center" });
+}
+
+function sheetsBlock() {
+  return `
+  <section class="carte">
+    <h2>Copie pour mes agents</h2>
+    <div class="petit">Envoie une copie de tes données dans un Google Sheets privé de ton Drive, que tes assistants peuvent lire. Rien ne change dans l'appli : la copie est réécrite à chaque synchro.</div>
+    <button type="button" class="bouton clair" id="sheets-btn" data-action="sheets-sync" ${sheetsBusy ? "disabled" : ""}>${sheetsBusy ? "Synchronisation…" : SHEETS_LABEL}</button>
+    <div id="sheets-status">${sheetsStatusHtml()}</div>
+  </section>`;
+}
+
+// auto = true : synchro de fond après une modification, sans fenêtre Google (seulement si le jeton est encore valide).
+async function syncSheets(auto) {
+  if (sheetsBusy) return;
+  const clientId = gcalClientId();
+  if (!clientId) {
+    if (!auto) {
+      sheetsNotice = { text: "Colle d'abord ton identifiant client Google : onglet Révision, tout en bas (« Mes cours et objectifs »).", ok: false };
+      refreshSheetsBlock(true);
+    }
+    return;
+  }
+  sheetsBusy = true;
+  if (!auto) sheetsNotice = { text: "Connexion à Google…", ok: true };
+  refreshSheetsBlock();
+  try {
+    const token = auto ? validSheetsToken() : await getSheetsToken(clientId);
+    if (!token) return;
+    const tabs = sheetsTabs(new Date());
+    const file = await sheetsEnsureFile(token, tabs);
+    const base = SHEETS_API + "/" + encodeURIComponent(file.id) + "/values:";
+    await sheetsCall(token, "POST", base + "batchUpdate", { valueInputOption: "RAW", data: tabs.map((t) => ({ range: t.name + "!A1", values: t.values })) });
+    // Efface ce qui restait d'une ancienne synchro sous les nouvelles données. Si Google répond 400, il n'y a rien en dessous.
+    try {
+      await sheetsCall(token, "POST", base + "batchClear", { ranges: tabs.map((t) => t.name + "!A" + (t.values.length + 1) + ":Z") });
+    } catch (error) {
+      if (error.code !== 400) throw error;
+    }
+    write(SHEETS_STORE, { id: file.id, url: file.url, lastSync: new Date().toISOString() });
+    const rows = tabs.slice(1).reduce((sum, t) => sum + t.values.length - 1, 0);
+    sheetsNotice = auto ? null : { text: (file.replaced ? "L'ancien fichier était introuvable : un nouveau a été créé. " : "") + "Synchronisé : " + rows + " ligne" + (rows > 1 ? "s" : "") + " dans " + (tabs.length - 1) + " onglets.", ok: true };
+  } catch (error) {
+    if (error && error.code === 401) sheetsToken = null;
+    sheetsNotice = { text: (error && error.message) || "La synchronisation avec Google Sheets a échoué.", ok: false };
+  } finally {
+    sheetsBusy = false;
+    refreshSheetsBlock(!auto);
+  }
+}
+
+// Appelé à chaque enregistrement de données : si tu as déjà synchronisé pendant cette session, la copie suit toute seule.
+function scheduleSheetsSync(key) {
+  if (!/^cg\.(budgets|expenses|revision|reading|reco)$/.test(String(key))) return;
+  if (!validSheetsToken()) return;
+  const info = read(SHEETS_STORE, {});
+  if (!info || !info.id) return;
+  clearTimeout(sheetsTimer);
+  sheetsTimer = setTimeout(() => syncSheets(true), 8000);
+}
+
 // reco.js : recommandations de livres avec Google Livres.
 // L'appli apprend ce que j'aime : mes livres de la bibliothèque, mes thèmes, et mes swipes
 // (droite = intéressé, gauche = pas pour moi). Puis elle cherche des livres proches de mes goûts.
@@ -1902,6 +2144,7 @@ function write(key, value) {
   } catch (error) {
     /* pas de sauvegarde possible : on continue sans */
   }
+  scheduleSheetsSync(key); // la copie Google Sheets suit, si tu t'es déjà synchronisé pendant cette session
 }
 
 const state = {
@@ -2079,7 +2322,8 @@ function settingsBlock() {
     <details ${state.settingsOpen ? "open" : ""}><summary>Mes budgets</summary><div class="budgets">${fields}</div></details>
   </section>
   <button type="button" class="bouton clair" data-action="export">Exporter mes données (sauvegarde)</button>
-  ${importControls()}`;
+  ${importControls()}
+  ${sheetsBlock()}`;
 }
 
 // La barre d'onglets en bas de l'écran.
@@ -2591,6 +2835,7 @@ app.addEventListener("click", (event) => {
   } else if (action === "export") exportData();
   else if (action === "import") pickBackupFile();
   else if (action === "undo-import") undoImport();
+  else if (action === "sheets-sync") syncSheets(false);
 });
 
 app.addEventListener("input", (event) => {
