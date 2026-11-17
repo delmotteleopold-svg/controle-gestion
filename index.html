@@ -1922,6 +1922,7 @@ const state = {
   message: "",
   confirmation: "",
   listening: false,
+  importNotice: null, // message sous les boutons d'import de sauvegarde
 };
 
 const app = document.getElementById("app");
@@ -2077,7 +2078,8 @@ function settingsBlock() {
   <section class="carte">
     <details ${state.settingsOpen ? "open" : ""}><summary>Mes budgets</summary><div class="budgets">${fields}</div></details>
   </section>
-  <button type="button" class="bouton clair" data-action="export">Exporter mes données (sauvegarde)</button>`;
+  <button type="button" class="bouton clair" data-action="export">Exporter mes données (sauvegarde)</button>
+  ${importControls()}`;
 }
 
 // La barre d'onglets en bas de l'écran.
@@ -2148,6 +2150,7 @@ function goToTab(id) {
   if (to < 0 || to === from) return;
   state.slide = to > from ? "droite" : "gauche";
   state.tab = id;
+  state.importNotice = null;
   window.scrollTo(0, 0);
   render();
 }
@@ -2338,12 +2341,220 @@ function saveExpense() {
   render();
 }
 
+function backupJson() {
+  return JSON.stringify({ budgets: state.budgets, expenses: state.expenses, revision: state.revision, reading: state.reading, reco: { liked: state.reco.liked, disliked: state.reco.disliked, weights: state.reco.weights } }, null, 2);
+}
+
 function exportData() {
-  const data = JSON.stringify({ budgets: state.budgets, expenses: state.expenses, revision: state.revision, reading: state.reading, reco: { liked: state.reco.liked, disliked: state.reco.disliked, weights: state.reco.weights } }, null, 2);
+  const data = backupJson();
   const link = document.createElement("a");
   link.href = URL.createObjectURL(new Blob([data], { type: "application/json" }));
   link.download = "mes-depenses-" + CG.toIso(new Date()) + ".json";
   link.click();
+}
+
+/* ---------- Importer une sauvegarde ---------- */
+// Relit un fichier créé par « Exporter mes données ». Rien n'est touché tant que le fichier n'est pas jugé valide
+// et que tu n'as pas confirmé. Une copie des données d'avant est gardée pour pouvoir annuler.
+
+const SNAPSHOT_KEY = "cg.avant-import";
+
+const bkIsObject = (v) => v !== null && typeof v === "object" && !Array.isArray(v);
+const bkIsNumber = (v) => typeof v === "number" && Number.isFinite(v);
+const bkIsDate = (v) => typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v) && !Number.isNaN(Date.parse(v));
+const bkCount = (list) => (Array.isArray(list) ? list.length : 0);
+
+// Vérifie chaque élément d'une liste ; renvoie le premier problème trouvé, ou "" si tout va bien.
+function bkCheckList(list, label, check) {
+  if (!Array.isArray(list)) return label + " : une liste est attendue.";
+  for (let i = 0; i < list.length; i++) {
+    if (!bkIsObject(list[i])) return label + " n° " + (i + 1) + " : format inattendu.";
+    const problem = check(list[i]);
+    if (problem) return label + " n° " + (i + 1) + " : " + problem;
+  }
+  return "";
+}
+
+// Transforme le texte du fichier en données sûres. Renvoie { data } ou { error }.
+function validateBackup(text) {
+  let parsed;
+  try {
+    parsed = JSON.parse(String(text).replace(/^﻿/, ""));
+  } catch (error) {
+    return { error: "Ce fichier n'est pas une sauvegarde lisible. Choisis un fichier créé par « Exporter mes données »." };
+  }
+  if (!bkIsObject(parsed)) return { error: "Ce fichier n'est pas une sauvegarde de l'appli." };
+  const data = {};
+  let problem = "";
+
+  if (parsed.budgets !== undefined) {
+    if (!bkIsObject(parsed.budgets) || Object.values(parsed.budgets).some((v) => !bkIsNumber(v) || v < 0)) problem = "Budgets : montants invalides.";
+    else data.budgets = parsed.budgets;
+  }
+  if (!problem && parsed.expenses !== undefined) {
+    problem = bkCheckList(parsed.expenses, "Dépense", (e) =>
+      !(bkIsNumber(e.amount) && e.amount > 0) ? "montant invalide." : !bkIsDate(e.date) ? "date invalide." : typeof e.category !== "string" || !e.category ? "catégorie manquante." : ""
+    );
+    if (!problem) {
+      const seen = new Set();
+      let next = Date.now();
+      data.expenses = parsed.expenses.map((e) => {
+        let id = e.id;
+        if (id === undefined || id === null || seen.has(String(id))) {
+          do { id = next++; } while (seen.has(String(id)));
+        }
+        seen.add(String(id));
+        return Object.assign({}, e, { id, note: typeof e.note === "string" ? e.note : "" });
+      });
+    }
+  }
+  if (!problem && parsed.revision !== undefined) {
+    const r = parsed.revision;
+    if (!bkIsObject(r)) problem = "Révision : format inattendu.";
+    else if (r.dailyMin !== undefined && !(bkIsNumber(r.dailyMin) && r.dailyMin >= 0)) problem = "Révision : objectif quotidien invalide.";
+    else if (r.courses !== undefined) problem = bkCheckList(r.courses, "Révision, cours", (c) => (typeof c.name !== "string" || !c.name ? "nom manquant." : c.goal !== undefined && !bkIsNumber(c.goal) ? "objectif invalide." : ""));
+    if (!problem && r.sessions !== undefined) problem = bkCheckList(r.sessions, "Révision, session", (s) => (typeof s.course !== "string" ? "cours manquant." : !(bkIsNumber(s.minutes) && s.minutes >= 0) ? "durée invalide." : !bkIsDate(s.date) ? "date invalide." : ""));
+    if (!problem && r.exams !== undefined) problem = bkCheckList(r.exams, "Révision, DS", (x) => (typeof x.course !== "string" ? "cours manquant." : !bkIsDate(x.date) ? "date invalide." : ""));
+    if (!problem) data.revision = r;
+  }
+  if (!problem && parsed.reading !== undefined) {
+    const r = parsed.reading;
+    if (!bkIsObject(r)) problem = "Lecture : format inattendu.";
+    else if (r.dailyMin !== undefined && !(bkIsNumber(r.dailyMin) && r.dailyMin >= 0)) problem = "Lecture : objectif quotidien invalide.";
+    else if (r.books !== undefined) problem = bkCheckList(r.books, "Lecture, livre", (b) => (typeof b.title !== "string" ? "titre manquant." : b.id === undefined || b.id === null ? "identifiant manquant." : b.status !== undefined && b.status !== "reading" && b.status !== "done" ? "statut inconnu." : (b.pages !== undefined && !bkIsNumber(b.pages)) || (b.page !== undefined && !bkIsNumber(b.page)) ? "nombre de pages invalide." : ""));
+    if (!problem && r.sessions !== undefined) problem = bkCheckList(r.sessions, "Lecture, session", (s) => (!bkIsNumber(s.minutes) || s.minutes < 0 ? "durée invalide." : !bkIsDate(s.date) ? "date invalide." : ""));
+    if (!problem) data.reading = Array.isArray(r.books) ? Object.assign({}, r, { books: r.books.map((b) => Object.assign({ pages: 0, page: 0 }, b)) }) : r;
+  }
+  if (!problem && parsed.reco !== undefined) {
+    const r = parsed.reco;
+    if (!bkIsObject(r) || (r.liked !== undefined && !Array.isArray(r.liked)) || (r.disliked !== undefined && !Array.isArray(r.disliked)) || (r.weights !== undefined && !bkIsObject(r.weights))) problem = "Recommandations de livres : format inattendu.";
+    else {
+      problem = r.liked === undefined ? "" : bkCheckList(r.liked, "Livre à lire", (b) => (typeof b.title !== "string" ? "titre manquant." : b.authors !== undefined && !Array.isArray(b.authors) ? "auteurs invalides." : ""));
+      if (!problem) {
+        // Un livre « à lire » sans auteurs ou sans catégories ferait planter l'onglet Lecture : on complète ce qui manque.
+        const liked = (r.liked || []).map((b) => Object.assign({}, b, { authors: (b.authors || []).filter((a) => typeof a === "string"), categories: Array.isArray(b.categories) ? b.categories.filter((c) => typeof c === "string") : [], pages: bkIsNumber(b.pages) ? b.pages : 0 }));
+        data.reco = Object.assign({}, r, { liked });
+      }
+    }
+  }
+
+  if (problem) return { error: problem + " Rien n'a été modifié." };
+  if (!Object.keys(data).length) return { error: "Aucune donnée de l'appli reconnue dans ce fichier." };
+  return { data };
+}
+
+// Une phrase par bloc du fichier, avec ce que tu as aujourd'hui, pour repérer un mauvais fichier avant de confirmer.
+function describeBackup(data) {
+  const lines = [];
+  if (data.expenses) lines.push("• Dépenses : " + data.expenses.length + " (aujourd'hui " + state.expenses.length + ")");
+  if (data.budgets) lines.push("• Budgets du mois");
+  if (data.revision) lines.push("• Révision : " + bkCount(data.revision.sessions) + " session(s), " + bkCount(data.revision.exams) + " DS (aujourd'hui " + state.revision.sessions.length + " et " + state.revision.exams.length + ")");
+  if (data.reading) lines.push("• Lecture : " + bkCount(data.reading.books) + " livre(s), " + bkCount(data.reading.sessions) + " session(s) (aujourd'hui " + state.reading.books.length + " et " + state.reading.sessions.length + ")");
+  if (data.reco) lines.push("• Recommandations de livres : " + bkCount(data.reco.liked) + " livre(s) à lire");
+  const names = { budgets: "budgets", expenses: "dépenses", revision: "révision", reading: "lecture", reco: "recommandations" };
+  const kept = Object.keys(names).filter((k) => !data[k]).map((k) => names[k]);
+  if (kept.length) lines.push("Absents du fichier, donc conservés tels quels : " + kept.join(", ") + ".");
+  return lines.join("\n");
+}
+
+// Écrit les données reçues dans l'état et dans le stockage, bloc par bloc, comme le fait déjà l'appli au chargement.
+function applyBackup(data) {
+  if (data.budgets) {
+    state.budgets = Object.assign({}, CG.DEFAULT_BUDGETS, data.budgets);
+    write(STORE.budgets, state.budgets);
+  }
+  if (data.expenses) {
+    state.expenses = data.expenses;
+    write(STORE.expenses, state.expenses);
+  }
+  if (data.revision) {
+    state.revision = Object.assign(JSON.parse(JSON.stringify(CG.DEFAULT_REVISION)), data.revision);
+    saveRevision();
+  }
+  if (data.reading) {
+    state.reading = Object.assign(JSON.parse(JSON.stringify(CG.DEFAULT_READING)), data.reading);
+    saveReading();
+  }
+  if (data.reco) {
+    const weights = data.reco.weights || {};
+    state.reco.liked = data.reco.liked || [];
+    state.reco.disliked = data.reco.disliked || [];
+    state.reco.weights = { authors: weights.authors || {}, cats: weights.cats || {} };
+    state.reco.deck = [];
+    state.reco.page = 0;
+    state.reco.autoTried = false;
+    saveReco();
+  }
+  state.draft = null;
+  state.log = null;
+  state.examDraft = null;
+  state.sentence = "";
+}
+
+function readSnapshot() {
+  const saved = read(SNAPSHOT_KEY, null);
+  return saved && bkIsObject(saved.data) ? saved : null;
+}
+
+function setImportNotice(text, ok) {
+  state.importNotice = { text, ok };
+  render();
+  // Le message apparaît sous le bouton, parfois derrière la barre du bas : on l'amène à l'écran.
+  const shown = document.getElementById("import-notice");
+  if (shown && shown.scrollIntoView) shown.scrollIntoView({ block: "center" });
+}
+
+function importFromText(text) {
+  const result = validateBackup(text);
+  if (result.error) return setImportNotice(result.error, false);
+  const question = "Remplacer tes données actuelles par celles de ce fichier ?\n\n" + describeBackup(result.data) + "\n\nTu pourras annuler juste après avec « Annuler le dernier import ».";
+  if (!window.confirm(question)) return;
+  write(SNAPSHOT_KEY, { date: CG.toIso(new Date()), data: JSON.parse(backupJson()) });
+  if (!readSnapshot()) return setImportNotice("Impossible de garder une copie de sécurité sur cet appareil : import annulé, rien n'a été modifié.", false);
+  applyBackup(result.data);
+  setImportNotice("Sauvegarde importée. Tes données d'avant sont gardées si tu veux annuler.", true);
+}
+
+function undoImport() {
+  const snapshot = readSnapshot();
+  if (!snapshot) return setImportNotice("Il n'y a rien à annuler.", false);
+  if (!window.confirm("Revenir aux données d'avant l'import ?\n\nCe que tu as saisi depuis l'import sera perdu.")) return;
+  applyBackup(snapshot.data);
+  try {
+    localStorage.removeItem(SNAPSHOT_KEY);
+  } catch (error) {
+    /* pas grave : la copie restera simplement proposée */
+  }
+  setImportNotice("Import annulé : tes données d'avant sont revenues.", true);
+}
+
+function pickBackupFile() {
+  const input = document.createElement("input");
+  input.type = "file";
+  input.accept = "application/json,.json";
+  input.style.display = "none";
+  document.body.appendChild(input);
+  input.addEventListener("change", () => {
+    const file = input.files && input.files[0];
+    input.remove();
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) return setImportNotice("Ce fichier est trop gros pour être une sauvegarde de l'appli.", false);
+    const reader = new FileReader();
+    reader.onload = () => importFromText(String(reader.result));
+    reader.onerror = () => setImportNotice("Impossible de lire ce fichier.", false);
+    reader.readAsText(file);
+  });
+  input.addEventListener("cancel", () => input.remove());
+  input.click();
+}
+
+// Les boutons et le message affichés sous « Exporter mes données ».
+function importControls() {
+  const snapshot = readSnapshot();
+  const day = snapshot ? String(snapshot.date || "") : "";
+  const undo = snapshot ? `<button type="button" class="bouton clair" data-action="undo-import">Annuler le dernier import${day.length === 10 ? " (" + esc(day.slice(8, 10) + "/" + day.slice(5, 7)) + ")" : ""}</button>` : "";
+  const notice = state.importNotice ? `<div id="import-notice" class="${state.importNotice.ok ? "confirmation" : "message"}">${esc(state.importNotice.text)}</div>` : "";
+  return `<button type="button" class="bouton clair" data-action="import">Importer une sauvegarde</button>${undo}${notice}`;
 }
 
 app.addEventListener("click", (event) => {
@@ -2378,6 +2589,8 @@ app.addEventListener("click", (event) => {
       render();
     }
   } else if (action === "export") exportData();
+  else if (action === "import") pickBackupFile();
+  else if (action === "undo-import") undoImport();
 });
 
 app.addEventListener("input", (event) => {
