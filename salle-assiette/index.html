@@ -162,7 +162,7 @@ nav button.on .ic{animation:bump .45s var(--spring)}
 body.sheet main{transform:scale(.92) translateY(12px);border-radius:26px;filter:brightness(.92)}
 body.sheet nav{transform:translateX(-50%) translateY(140%);opacity:0}
 /* notification façon Dynamic Island */
-#toast{position:fixed;top:calc(10px + env(safe-area-inset-top));left:50%;z-index:50;display:none;align-items:center;gap:10px;background:#000;color:#fff;padding:9px 18px 9px 9px;border-radius:999px;font:600 15px var(--sans);letter-spacing:-.2px;min-height:44px;max-width:calc(100% - 32px);white-space:nowrap;
+#toast{position:fixed;top:calc(10px + env(safe-area-inset-top));left:50%;z-index:50;pointer-events:none;display:none;align-items:center;gap:10px;background:#000;color:#fff;padding:9px 18px 9px 9px;border-radius:999px;font:600 15px var(--sans);letter-spacing:-.2px;min-height:44px;max-width:calc(100% - 32px);white-space:nowrap;
   transform:translateX(-50%);box-shadow:0 10px 30px rgba(0,0,0,.28)}
 #toast.on{display:flex;animation:island .6s var(--spring) both}
 #toast.off{display:flex;animation:islandOut .35s ease-in both}
@@ -390,7 +390,7 @@ function sessionsSorted(){ return Object.entries(S.sessions).map(([id,s])=>({id,
 function activeSession(){ return sessionsSorted().find(s=>!s.done); }
 function weekStart(){ const d=new Date(); const wd=(d.getDay()+6)%7; d.setDate(d.getDate()-wd); return dkey(d); }
 function toast(t){
-  const e=document.getElementById("toast"), warn=/invalide|impossible|requis|plein|non reconnu|Donne un nom/i.test(t);
+  const e=document.getElementById("toast"), warn=/invalide|impossible|requis|plein|non reconnu|Donne un nom|Impossible/i.test(t);
   e.innerHTML=`<i class="dot" style="${warn?"background:var(--orange)":""}">${ic(warn?"warn":"check")}</i><span>${esc(t)}</span>`;
   clearTimeout(e._t); clearTimeout(e._t2); e.className=""; void e.offsetWidth; e.className="on";
   e._t=setTimeout(()=>{ e.className="off"; e._t2=setTimeout(()=>{ e.className=""; },350); },2400);
@@ -601,9 +601,9 @@ function viewFood(){
   </div>
   <div class="actions">
     <button class="btn g" data-act="addFood">${ic("plus")}Ajouter</button>
-    <button class="btn o" data-act="aiPhoto" ${sampler?"":"disabled"}>${ic("camera")}Photo</button>
+    <button class="btn o" data-act="aiPhoto">${ic("camera")}Photo</button>
   </div>
-  <button class="btn l w" data-act="aiText" ${sampler?"":"disabled"}>${ic("sparkles")}Décrire mon repas à Claude</button>
+  <button class="btn l w" data-act="aiText">${ic("sparkles")}Décrire mon repas à Claude</button>
   ${recent.length?`<h2>Encore une fois ?</h2><div>${recent.map((r,i)=>`<button class="chip g" data-act="readd" data-i="${i}">${ic("plus")}${esc(r.name)} · ${fr(r.p,0)} g</button>`).join("")}</div>`:""}
   <div class="ghead">Mangé ${k===today()?"aujourd'hui":"ce jour-là"}</div>
   <div class="group">${(d.meals||[]).length?(d.meals||[]).map((m,i)=>`<div class="cell" style="padding-right:8px"><div class="grow"><div class="t">${esc(m.name)}</div><div class="sub">${m.g?fr(m.g,0)+" g · ":""}${m.t||""}</div></div><div style="text-align:right"><span class="tag">${fr(m.p,0)} g</span><div class="sub num" style="margin-top:3px">${fr(m.k,0)} kcal</div></div><button class="icb plain" data-act="rmMeal" data-i="${i}" aria-label="Supprimer">${ic("xmark")}</button></div>`).join(""):`<div class="empty">Rien pour l'instant</div>`}</div>
@@ -768,7 +768,45 @@ Réponds UNIQUEMENT avec un objet JSON valide, sans texte autour, de la forme :
 {"nom":"nom court du plat en français","items":[{"nom":"aliment","grammes":nombre,"proteines":nombre,"kcal":nombre}],"proteines":nombre,"kcal":nombre,"confiance":"haute|moyenne|faible"}
 "proteines" et "kcal" = totaux du repas entier.`;
 function parseJSON(t){ if(typeof t!=="string") return t; const m=t.match(/\{[\s\S]*\}/); return JSON.parse(m?m[0]:t); }
+/* ---- Hors de claude.ai : appel direct à l'API Claude avec la clé de l'utilisateur (gardée sur l'appareil uniquement) ---- */
+const LS_KEY="salle_assiette_cle_api"; // jamais dans S, donc jamais synchronisée ni exportée
+function apiKey(){ try{ return localStorage.getItem(LS_KEY)||""; }catch(e){ return ""; } }
+function aiOn(){ return !!sampler||!!apiKey(); }
+const MEAL_SCHEMA={type:"object",additionalProperties:false,required:["nom","items","proteines","kcal","confiance"],properties:{
+  nom:{type:"string"}, proteines:{type:"number"}, kcal:{type:"number"}, confiance:{type:"string",enum:["haute","moyenne","faible"]},
+  items:{type:"array",items:{type:"object",additionalProperties:false,required:["nom","grammes","proteines","kcal"],properties:{nom:{type:"string"},grammes:{type:"number"},proteines:{type:"number"},kcal:{type:"number"}}}}}};
+const blobB64=b=>new Promise((ok,ko)=>{ const r=new FileReader(); r.onload=()=>ok(String(r.result).split(",")[1]); r.onerror=ko; r.readAsDataURL(b); });
+async function askApi(input,images){
+  const key=apiKey(); if(!key) throw {code:"no_key"};
+  const content=[];
+  for(const b of images||[]){ const t=/^image\/(jpeg|png|webp|gif)$/.test(b.type)?b.type:"image/jpeg"; content.push({type:"image",source:{type:"base64",media_type:t,data:await blobB64(b)}}); }
+  content.push({type:"text",text:input});
+  let res;
+  try{ res=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"content-type":"application/json","x-api-key":key,"anthropic-version":"2026-10-21","anthropic-beta":"server-side-fallback-2026-07-01","anthropic-dangerous-direct-browser-access":"true"},
+    body:JSON.stringify({model:"claude-opus-5-5",max_tokens:16000,fallbacks:"default",output_config:{format:{type:"json_schema",schema:MEAL_SCHEMA}},messages:[{role:"user",content}]})}); }
+  catch(e){ throw {code:"network"}; }
+  const data=await res.json().catch(()=>({}));
+  if(!res.ok){ const m=(data.error&&data.error.message)||"";
+    if(res.status===401||res.status===403) throw {code:"bad_key"};
+    if(/credit|balance|billing/i.test(m)) throw {code:"credit"};
+    if(res.status===429) throw {code:"rate_limited"};
+    throw {code:res.status>=500?"busy":"api"}; }
+  if(data.stop_reason==="refusal") throw {code:"refusal"};
+  const text=(data.content||[]).filter(c=>c.type==="text").map(c=>c.text).join("");
+  return parseJSON(text);
+}
+function sheetApiKey(){
+  const k=apiKey();
+  sheet(`<h2 style="margin-top:0" class="row"><span class="tile o" style="width:30px;height:30px;border-radius:9px">${ic("sparkles")}</span>Estimation par Claude</h2>
+  <div class="sub">Pour estimer un repas en photo ou en texte, l'appli appelle Claude avec ta clé API personnelle. Elle reste sur ce téléphone : jamais envoyée ailleurs qu'à Claude, jamais exportée.</div>
+  <div class="ghead">Ta clé API</div>
+  <div class="group"><div class="cell"><input id="akIn" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="sk-ant-…" value="${esc(k)}" style="width:100%;text-align:left;color:var(--ink);font-family:var(--sans);font-weight:500"></div></div>
+  <div class="gfoot">À créer sur console.anthropic.com, rubrique « API keys ». Environ 2 à 3 centimes par repas estimé.</div>
+  <button class="btn g w" data-act="saveKey">Enregistrer la clé</button>
+  ${k?`<div class="center" style="margin-top:10px"><button class="chip del" data-act="delKey">Retirer la clé de ce téléphone</button></div>`:""}`);
+}
 async function askClaude(input,images){
+  if(!sampler) return askApi(input,images);
   const opts={modelTier:"default"}; if(images) opts.images=images;
   try{ if(typeof sampler.json==="function") return parseJSON(await sampler.json(input,opts)); }catch(e){ if(e&&(e.code==="not_granted"||e.code==="rate_limited")) throw e; }
   const r=await sampler(input,opts); return parseJSON(r.text);
@@ -793,8 +831,9 @@ async function runAi(input,images){
     <div style="height:12px"></div><button class="btn g w" data-act="aiAdd">Ajouter</button>
     <button class="btn l w" style="margin-top:8px" data-act="aiAddSave">Ajouter + garder comme recette</button>`);
   }catch(e){
-    const msg=e&&e.code==="rate_limited"?"Trop de demandes, réessaie dans un moment.":e&&e.code==="not_granted"?"Autorisation refusée pour Claude.":"Estimation impossible. Réessaie ou saisis à la main.";
-    sheet(`<h2 style="margin-top:0">Oups</h2><div class="sub">${msg}</div><div style="height:12px"></div><button class="btn l w" data-act="manualMeal">Saisie manuelle</button>`);
+    const M={rate_limited:"Trop de demandes, réessaie dans un moment.",not_granted:"Autorisation refusée pour Claude.",no_key:"Ajoute d'abord ta clé API dans Réglages.",bad_key:"Ta clé API est refusée : vérifie-la dans Réglages.",credit:"Plus de crédit sur ton compte API : recharge-le sur console.anthropic.com.",network:"Pas de connexion internet. Réessaie ou saisis à la main.",busy:"Claude est très sollicité, réessaie dans un moment.",refusal:"Claude n'a pas pu analyser ce repas. Saisis-le à la main."};
+    const msg=(e&&M[e.code])||"Estimation impossible. Réessaie ou saisis à la main.";
+    sheet(`<h2 style="margin-top:0">Oups</h2><div class="sub">${msg}</div><div style="height:12px"></div>${e&&(e.code==="no_key"||e.code==="bad_key")?`<button class="btn g w" style="margin-bottom:8px" data-act="apiKey">Ajouter ma clé</button>`:""}<button class="btn l w" data-act="manualMeal">Saisie manuelle</button>`);
   }
 }
 async function shrink(file){
@@ -820,6 +859,7 @@ function sheetSettings(){
   <div class="ghead">Exercices</div>
   <div class="group">${c.exercises.map(e=>`<div class="cell" data-act="editEx" data-v="${e.id}"><div class="grow t">${esc(e.name)}</div><span class="sub num">${e.target} reps · +${fr(e.inc)} kg</span>${CHEV}</div>`).join("")}<div class="cell" data-act="editEx" data-v=""><div class="grow t c-g">Nouvel exercice</div><span class="c-g">${ic("plus")}</span></div></div>
   <div class="gfoot">Reps visées et palier d'augmentation servent à la suggestion de charge.</div>
+  ${sampler?"":`<div class="ghead">Estimation des repas</div><div class="group"><div class="cell ind" data-act="apiKey"><div class="tile o">${ic("sparkles")}</div><div class="grow t">Clé API Claude</div><span class="sub">${apiKey()?"Enregistrée":"À ajouter"}</span>${CHEV}</div></div>`}
   <div class="ghead">Sauvegarde</div>
   <div class="group"><div class="cell ind" data-act="export"><div class="tile k">${ic("share")}</div><div class="grow t">Exporter</div>${CHEV}</div><div class="cell ind" data-act="import"><div class="tile k">${ic("download")}</div><div class="grow t">Importer</div>${CHEV}</div></div>
   <div class="gfoot">${db?"Tes données sont synchronisées dans le cloud (privé). ":""}Exporte une copie de temps en temps. ${exportNote()}</div>`);
@@ -941,9 +981,12 @@ const A={
   addManual:()=>{ const name=document.getElementById("mn").value.trim()||"Repas", p=num(document.getElementById("mp").value)||0, k=num(document.getElementById("mk").value)||0; closeSheet(); addMeal(ui.tab==="food"?ui.day:today(),{name,p,k,src:"manuel"}); },
   readd:el=>{ const m=recentItems()[+el.dataset.i]; addMeal(ui.day,{name:m.name,g:m.g,p:m.p,k:m.k,src:m.src}); toast("+"+fr(m.p,0)+" g de protéines"); },
   rmMeal:el=>{ const d=clone(dayOf(ui.day)); d.meals.splice(+el.dataset.i,1); put("days",ui.day,d); },
-  aiText:sheetAiText,
+  aiText:()=>aiOn()?sheetAiText():sheetApiKey(),
+  apiKey:sheetApiKey,
+  saveKey:()=>{ const v=document.getElementById("akIn").value.trim(); if(!/^sk-ant-/.test(v)){ toast("Clé invalide : elle commence par sk-ant-"); return; } try{ localStorage.setItem(LS_KEY,v); }catch(e){ toast("Impossible d'enregistrer la clé"); return; } closeSheet(); render(); toast("Clé enregistrée"); },
+  delKey:()=>{ try{ localStorage.removeItem(LS_KEY); }catch(e){} closeSheet(); render(); toast("Clé retirée"); },
   aiGo:()=>{ const t=document.getElementById("aiT").value.trim(); if(!t) return; runAi(AI_PROMPT+"\n\nRepas : "+t); },
-  aiPhoto:()=>document.getElementById("photo").click(),
+  aiPhoto:()=>{ if(!aiOn()) return sheetApiKey(); document.getElementById("photo").click(); },
   aiAdd:()=>{ const r=ui.aiRes, p=num(document.getElementById("aip").value)||0, k=num(document.getElementById("aik").value)||0; closeSheet(); addMeal(ui.tab==="food"?ui.day:today(),{name:r.name,p,k,src:"claude"}); toast("+"+fr(p,0)+" g de protéines"); },
   aiAddSave:()=>{ const r=ui.aiRes, p=num(document.getElementById("aip").value)||0, k=num(document.getElementById("aik").value)||0; closeSheet(); put("recipes",uid("r"),{name:r.name,items:[],portions:1,p:r1(p),k:Math.round(k)}); addMeal(ui.tab==="food"?ui.day:today(),{name:r.name,p,k,src:"claude"}); toast("Ajouté et gardé dans tes recettes"); },
   prog:el=>{ ui.anim=ui.prog!==el.dataset.v; ui.prog=el.dataset.v; ui.exSel=null; render(); },

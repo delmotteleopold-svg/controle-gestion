@@ -40,3 +40,11 @@ Accueil ↔ Séance ↔ Repas ↔ Progrès d'un glissé horizontal, sur le modè
 Sur `*.github.io`, la page ajoute un manifest (icône intégrée) et enregistre `salle-assiette/sw.js` pour s'ouvrir sans réseau.
 `sw.js` ne nettoie que les caches `salle-assiette-…` : il ne touche jamais au cache de l'appli à la racine.
 Dans cette version, les données restent sur le téléphone (pas de cloud Claude ni d'estimation photo) : exporter régulièrement.
+
+## Estimation des repas hors de claude.ai (photo / texte)
+- Version claude.ai : inchangée, passe par `use("sample")`.
+- Ailleurs (GitHub Pages) : appel direct `POST https://api.anthropic.com/v1/messages` avec la **clé API personnelle** de Leo (Réglages › Clé API Claude).
+  - Clé stockée seulement sur l'appareil (`localStorage` `salle_assiette_cle_api`), hors de `S` : jamais synchronisée, jamais exportée, jamais dans le dépôt.
+  - Modèle `claude-opus-5-5`, réponse au format imposé (`output_config.format` json_schema = nom, items, proteines, kcal, confiance), modèle de secours `fallbacks: "default"` (en-tête `server-side-fallback-2026-07-01`), en-tête `anthropic-dangerous-direct-browser-access: true` (appel depuis le navigateur).
+  - Messages d'erreur clairs : pas de clé, clé refusée, crédit épuisé, pas de réseau, Claude saturé, refus.
+- Coût indicatif : 2 à 3 centimes par repas (facturé sur le compte API, distinct de l'abonnement Claude).
