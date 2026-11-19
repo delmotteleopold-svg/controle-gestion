@@ -290,10 +290,10 @@ const DEF_FOODS = {
   f_saumon:{name:"Saumon cuit",p:25,k:200,portion:120},
   f_skyr:{name:"Skyr nature",p:10,k:60,portion:150},
   f_fb:{name:"Fromage blanc 0 %",p:7.5,k:50,portion:200},
-  f_whey:{name:"Whey (dose)",p:75,k:380,portion:30},
+  f_whey:{name:"Whey (dose)",p:75,k:380,portion:30,unit:"dose"},
   f_avoine:{name:"Flocons d'avoine",p:13,k:370,portion:50},
   f_lait:{name:"Lait demi-écrémé",p:3.3,k:46,portion:250},
-  f_banane:{name:"Banane",p:1.1,k:90,portion:120},
+  f_banane:{name:"Banane",p:1.1,k:90,portion:120,unit:"banane"},
   f_pain:{name:"Pain (baguette)",p:9,k:270,portion:60},
   f_cacahuete:{name:"Beurre de cacahuète",p:25,k:590,portion:20},
   f_amandes:{name:"Amandes",p:21,k:600,portion:30},
@@ -606,9 +606,10 @@ function viewFood(){
   <button class="btn l w" data-act="aiText">${ic("sparkles")}Décrire mon repas à Claude</button>
   ${recent.length?`<h2>Encore une fois ?</h2><div>${recent.map((r,i)=>`<button class="chip g" data-act="readd" data-i="${i}">${ic("plus")}${esc(r.name)} · ${fr(r.p,0)} g</button>`).join("")}</div>`:""}
   <div class="ghead">Mangé ${k===today()?"aujourd'hui":"ce jour-là"}</div>
-  <div class="group">${(d.meals||[]).length?(d.meals||[]).map((m,i)=>`<div class="cell" style="padding-right:8px"><div class="grow"><div class="t">${esc(m.name)}</div><div class="sub">${m.g?fr(m.g,0)+" g · ":""}${m.t||""}</div></div><div style="text-align:right"><span class="tag">${fr(m.p,0)} g</span><div class="sub num" style="margin-top:3px">${fr(m.k,0)} kcal</div></div><button class="icb plain" data-act="rmMeal" data-i="${i}" aria-label="Supprimer">${ic("xmark")}</button></div>`).join(""):`<div class="empty">Rien pour l'instant</div>`}</div>
+  <div class="group">${(d.meals||[]).length?(d.meals||[]).map((m,i)=>`<div class="cell" style="padding-right:8px"><div class="grow"><div class="t">${esc(m.name)}</div><div class="sub">${m.g?qtyLabel(m)+" · ":""}${m.t||""}</div></div><div style="text-align:right"><span class="tag">${fr(m.p,0)} g</span><div class="sub num" style="margin-top:3px">${fr(m.k,0)} kcal</div></div><button class="icb plain" data-act="rmMeal" data-i="${i}" aria-label="Supprimer">${ic("xmark")}</button></div>`).join(""):`<div class="empty">Rien pour l'instant</div>`}</div>
   ${weightRowFor(k)}`;
 }
+function qtyLabel(m){ const f=m.src&&allFoods()[m.src]; if(f&&f.unit&&f.portion){ const n=r1(m.g/f.portion); return fr(n)+" "+esc(plur(n,f.unit)); } return fr(m.g,0)+" g"; }
 function weightRowFor(k){ const w=dayOf(k).weight; return `<div class="group"><div class="cell"><div class="tile">${ic("scale")}</div><div class="grow"><div class="sub" style="margin:0">Poids du jour</div><div class="mid">${w?fr(w)+'<span class="unit"> kg</span>':"—"}</div></div><button class="btn l s" data-act="weigh">${w?"Modifier":ic("plus")+"Pesée"}</button></div></div>`; }
 function recentItems(){
   const seen=new Set(), out=[]; const keys=Object.keys(S.days).sort().reverse();
@@ -689,33 +690,47 @@ function sheetAddFood(q=""){
   const rl=recs.filter(([,r])=>m(r.name));
   sheet(`<h2 style="margin-top:0">Ajouter</h2><input id="fq" placeholder="Rechercher (poulet, skyr, ma recette…)" value="${esc(q)}" autocomplete="off">
   ${rl.length?`<div class="ghead">Mes recettes</div><div class="group">${rl.map(([id,r])=>`<div class="cell ind" data-act="pickRecipe" data-v="${id}"><div class="tile o">${ic("book")}</div><div class="grow"><div class="t">${esc(r.name)}</div><div class="sub">${fr(r.p,0)} g prot · ${fr(r.k,0)} kcal / portion</div></div>${CHEV}</div>`).join("")}</div>`:""}
-  <div class="ghead">Aliments</div><div class="group">${fl.map(([id,f])=>`<div class="cell" data-act="pickFood" data-v="${id}"><div class="grow"><div class="t">${esc(f.name)}</div><div class="sub">${fr(f.p)} g prot · ${fr(f.k,0)} kcal / 100 g</div></div>${CHEV}</div>`).join("")||'<div class="empty">Aucun aliment trouvé</div>'}</div>
+  <div class="ghead">Aliments</div><div class="group">${fl.map(([id,f])=>`<div class="cell" data-act="pickFood" data-v="${id}"><div class="grow"><div class="t">${esc(f.name)}</div><div class="sub">${perLabel(f)}</div></div>${CHEV}</div>`).join("")||'<div class="empty">Aucun aliment trouvé</div>'}</div>
   <div class="grid2"><button class="btn l" data-act="newFood">${ic("plus")}Aliment</button><button class="btn l" data-act="newRecipe">${ic("plus")}Recette</button></div>
   <button class="btn l w" style="margin-top:10px" data-act="manualMeal">${ic("pencil")}Saisie manuelle (prot. + kcal)</button>`);
   const i=document.getElementById("fq"); i.addEventListener("input",()=>{ const v=i.value, pos=i.selectionStart; sheetAddFood(v); const j=document.getElementById("fq"); j.focus(); j.setSelectionRange(pos,pos); });
   if(q) i.focus();
 }
+/* Aliments comptés à l'unité : stockés comme les autres (pour 100 g + poids d'une pièce), affichés et saisis par pièce. */
+const plur=(n,u)=>n>1&&!/[sx]$/.test(u)?u+"s":u;
+const r2=n=>Math.round(n*100)/100;
+function perLabel(f){ return f.unit?`${fr(f.p*f.portion/100,1)} g prot · ${fr(f.k*f.portion/100,0)} kcal / ${esc(f.unit)}`:`${fr(f.p)} g prot · ${fr(f.k,0)} kcal / 100 g`; }
 function sheetQty(id){
-  const f=allFoods()[id]; const unit=f.unit;
-  sheet(`<h2 style="margin-top:0">${esc(f.name)}</h2><div class="sub">${fr(f.p)} g prot · ${fr(f.k,0)} kcal pour 100 g</div>
-  <div class="lbl" style="margin-top:14px">Quantité (g)</div><input id="qIn" inputmode="decimal" value="${f.portion||100}" class="field-big" style="margin-top:6px">
-  <div style="margin-top:10px">${(unit?[1,2,3,4].map(n=>[n*f.portion,n+" "+unit+(n>1?"s":"")]):[[50,"50 g"],[100,"100 g"],[150,"150 g"],[200,"200 g"],[250,"250 g"]]).map(([v,l])=>`<button class="chip" data-act="setQ" data-v="${v}">${l}</button>`).join("")}</div>
+  const f=allFoods()[id], unit=f.unit, w=f.portion||100;
+  sheet(`<h2 style="margin-top:0">${esc(f.name)}</h2><div class="sub">${unit?perLabel(f):fr(f.p)+" g prot · "+fr(f.k,0)+" kcal pour 100 g"}</div>
+  <div class="lbl" style="margin-top:14px">${unit?"Nombre ("+esc(plur(2,unit))+")":"Quantité (g)"}</div><input id="qIn" inputmode="decimal" value="${unit?1:w}" class="field-big" style="margin-top:6px">
+  <div style="margin-top:10px">${(unit?[0.5,1,2,3,4].map(n=>[n,(n===0.5?"½":n)+" "+plur(n,unit)]):[[50,"50 g"],[100,"100 g"],[150,"150 g"],[200,"200 g"],[250,"250 g"]]).map(([v,l])=>`<button class="chip" data-act="setQ" data-v="${v}">${esc(l)}</button>`).join("")}</div>
   <div class="group"><div class="cell"><div class="grow t">Total</div><b id="qTot" class="num c-g"></b></div></div>
   <button class="btn g w" data-act="addQty" data-v="${id}">Ajouter</button>
   <div class="row" style="justify-content:center;margin-top:10px"><button class="chip ghost" data-act="editFood" data-v="${id}">Modifier l'aliment</button></div>`);
-  const upd=()=>{ const g=num(document.getElementById("qIn").value)||0; document.getElementById("qTot").textContent=fr(f.p*g/100,1)+" g prot · "+fr(f.k*g/100,0)+" kcal"; };
+  const upd=()=>{ const q=num(document.getElementById("qIn").value)||0, g=unit?q*w:q; document.getElementById("qTot").textContent=fr(f.p*g/100,1)+" g prot · "+fr(f.k*g/100,0)+" kcal"; };
   document.getElementById("qIn").addEventListener("input",upd); upd();
 }
-function sheetFoodForm(id){
-  const f=id?allFoods()[id]:{name:"",p:"",k:"",portion:100};
+function sheetFoodForm(id,dr){
+  const f0=id?allFoods()[id]:{name:"",p:"",k:"",portion:100};
+  const per=(v,w)=>v===""?"":v*w/100;
+  const d=dr||{mode:f0.unit?"unit":"g",name:f0.name,unit:f0.unit||"",w:f0.portion||100,
+    p:f0.unit?per(f0.p,f0.portion||100):f0.p, k:f0.unit?per(f0.k,f0.portion||100):f0.k};
+  const u=d.mode==="unit", un=esc(d.unit||"unité");
   sheet(`<h2 style="margin-top:0">${id?"Modifier":"Nouvel aliment"}</h2>
-  <div class="lbl">Nom</div><input id="fn" value="${esc(f.name)}">
-  <div class="grid2" style="margin-top:10px"><div><div class="lbl">Prot. / 100 g</div><input id="fp" inputmode="decimal" value="${f.p===""?"":fr(f.p)}"></div><div><div class="lbl">Kcal / 100 g</div><input id="fk" inputmode="decimal" value="${f.k===""?"":fr(f.k,0)}"></div></div>
-  <div class="lbl" style="margin-top:10px">Portion habituelle (g)</div><input id="fpo" inputmode="decimal" value="${f.portion||100}">
-  <div class="sub" style="margin-top:6px">Astuce : les valeurs sont sur l'étiquette, colonne « pour 100 g ».</div>
+  <div class="lbl">Nom</div><input id="fn" value="${esc(d.name)}" placeholder="ex. Yaourt grec">
+  <div class="seg" style="margin-top:14px"><button data-act="fMode" data-v="g" class="${u?"":"on"}">Au poids (100 g)</button><button data-act="fMode" data-v="unit" class="${u?"on":""}">À l'unité</button></div>
+  ${u?`<div class="lbl">Unité</div><input id="fu" value="${esc(d.unit)}" placeholder="ex. œuf, banane, barre" autocapitalize="off">`:""}
+  <div class="grid2" style="margin-top:10px"><div><div class="lbl">Prot. ${u?`par <span class="unl">${un}</span>`:"/ 100 g"}</div><input id="fp" inputmode="decimal" value="${d.p===""?"":fr(d.p)}"></div><div><div class="lbl">Kcal ${u?`par <span class="unl">${un}</span>`:"/ 100 g"}</div><input id="fk" inputmode="decimal" value="${d.k===""?"":fr(d.k,0)}"></div></div>
+  <div class="lbl" style="margin-top:10px">${u?`Poids d'une <span class="unl">${un}</span> en g (facultatif)`:"Portion habituelle (g)"}</div><input id="fpo" inputmode="decimal" value="${d.w||""}">
+  <div class="sub" style="margin-top:6px">${u?"Astuce : sur l'étiquette, colonne « par portion » ou « par pièce ».":"Astuce : les valeurs sont sur l'étiquette, colonne « pour 100 g »."}</div>
   <div style="height:12px"></div><button class="btn g w" data-act="saveFood" data-v="${id||""}">Enregistrer</button>
   ${id?`<div style="text-align:center;margin-top:10px"><button class="chip del" data-act="delFood" data-v="${id}">Supprimer l'aliment</button></div>`:""}`);
+  const fu=document.getElementById("fu"); if(fu) fu.addEventListener("input",()=>document.querySelectorAll("#sh .unl").forEach(x=>x.textContent=fu.value.trim()||"unité"));
+  ui.fId=id||"";
 }
+function readFoodForm(){ const g=i=>document.getElementById(i), fu=g("fu");
+  return {mode:fu?"unit":"g",name:g("fn").value.trim(),unit:fu?fu.value.trim():"",p:num(g("fp").value),k:num(g("fk").value),w:num(g("fpo").value)}; }
 function sheetRecipe(id,preset){
   const r=id?S.recipes[id]:(preset||{name:"",items:[],portions:1});
   ui.rDraft=clone(r); ui.rDraftId=id||null;
@@ -727,7 +742,7 @@ function drawRecipe(){
   sheet(`<h2 style="margin-top:0">${ui.rDraftId?"Modifier la recette":"Nouvelle recette"}</h2>
   <div class="lbl">Nom</div><input id="rn" value="${esc(r.name)}" placeholder="ex. Bowl poulet riz">
   <h2>Ingrédients</h2>
-  ${r.items&&r.items.length?`<div class="group">${r.items.map((it,i)=>{const f=foods[it.f]||{name:it.name||"?",p:it.p100||0,k:it.k100||0}; return `<div class="cell" style="padding-right:8px"><div class="grow"><div class="t">${esc(f.name)}</div><div class="sub">${fr(f.p*it.g/100,1)} g prot</div></div><input data-ri="${i}" inputmode="decimal" value="${it.g}" style="width:64px;background:var(--fill);border-radius:10px;padding:6px 8px;text-align:center"><span class="u">g</span><button class="icb plain" data-act="rmIng" data-i="${i}" aria-label="Retirer">${ic("xmark")}</button></div>`}).join("")}</div>`:(r.p!=null&&!(r.items||[]).length?`<div class="card sub">Valeurs estimées par Claude : ${fr(r.p,0)} g prot · ${fr(r.k,0)} kcal par portion</div>`:'<div class="sub">Ajoute les ingrédients une seule fois : ensuite tu choisis juste la recette.</div>')}
+  ${r.items&&r.items.length?`<div class="group">${r.items.map((it,i)=>{const f=foods[it.f]||{name:it.name||"?",p:it.p100||0,k:it.k100||0}; return `<div class="cell" style="padding-right:8px"><div class="grow"><div class="t">${esc(f.name)}</div><div class="sub">${fr(f.p*it.g/100,1)} g prot${f.unit&&f.portion?" · "+fr(r1(it.g/f.portion))+" "+esc(plur(it.g/f.portion,f.unit)):""}</div></div><input data-ri="${i}" inputmode="decimal" value="${it.g}" style="width:64px;background:var(--fill);border-radius:10px;padding:6px 8px;text-align:center"><span class="u">g</span><button class="icb plain" data-act="rmIng" data-i="${i}" aria-label="Retirer">${ic("xmark")}</button></div>`}).join("")}</div>`:(r.p!=null&&!(r.items||[]).length?`<div class="card sub">Valeurs estimées par Claude : ${fr(r.p,0)} g prot · ${fr(r.k,0)} kcal par portion</div>`:'<div class="sub">Ajoute les ingrédients une seule fois : ensuite tu choisis juste la recette.</div>')}
   <select id="ingSel" style="margin-top:8px"><option value="">Ajouter un ingrédient…</option>${Object.entries(foods).sort((a,b)=>a[1].name.localeCompare(b[1].name)).map(([id,f])=>`<option value="${id}">${esc(f.name)}</option>`).join("")}</select>
   <div class="lbl" style="margin-top:12px">Nombre de portions</div><input id="rpo" inputmode="numeric" value="${r.portions||1}">
   <div class="group"><div class="cell"><div class="grow t">Par portion</div><b class="num c-g">${fr(tot.p,1)} g prot · ${fr(tot.k,0)} kcal</b></div></div>
@@ -966,9 +981,17 @@ const A={
   addFood:()=>sheetAddFood(),
   pickFood:el=>sheetQty(el.dataset.v),
   setQ:el=>{ const i=document.getElementById("qIn"); i.value=el.dataset.v; i.dispatchEvent(new Event("input")); },
-  addQty:el=>{ const f=allFoods()[el.dataset.v], g=num(document.getElementById("qIn").value)||0; if(!g) return; closeSheet(); addMeal(ui.tab==="food"?ui.day:today(),{name:f.name,g,p:f.p*g/100,k:f.k*g/100,src:el.dataset.v}); toast("+"+fr(f.p*g/100,0)+" g de protéines"); },
+  addQty:el=>{ const f=allFoods()[el.dataset.v], q=num(document.getElementById("qIn").value)||0, g=f.unit?r1(q*(f.portion||100)):q; if(!g) return; closeSheet(); addMeal(ui.tab==="food"?ui.day:today(),{name:f.name,g,p:f.p*g/100,k:f.k*g/100,src:el.dataset.v}); toast("+"+fr(f.p*g/100,0)+" g de protéines"); },
   newFood:()=>sheetFoodForm(null), editFood:el=>sheetFoodForm(el.dataset.v),
-  saveFood:el=>{ const name=document.getElementById("fn").value.trim(), p=num(document.getElementById("fp").value), k=num(document.getElementById("fk").value), po=num(document.getElementById("fpo").value)||100; if(!name||!isFinite(p)||!isFinite(k)){ toast("Nom, protéines et kcal requis"); return; } const id=el.dataset.v||uid("f"); const prev=allFoods()[id]||{}; closeSheet(); put("foods",id,{name,p,k,portion:po,...(prev.unit?{unit:prev.unit}:{})}); toast("Aliment enregistré"); },
+  fMode:el=>{ const d=readFoodForm(), to=el.dataset.v; if(to===d.mode) return; const w=d.w>0?d.w:100;
+    if(to==="unit"){ if(isFinite(d.p)) d.p=r1(d.p*w/100); if(isFinite(d.k)) d.k=Math.round(d.k*w/100); }
+    else { if(isFinite(d.p)) d.p=r1(d.p/w*100); if(isFinite(d.k)) d.k=Math.round(d.k/w*100); }
+    if(!isFinite(d.p)) d.p=""; if(!isFinite(d.k)) d.k=""; d.mode=to; sheetFoodForm(ui.fId||null,d); },
+  saveFood:el=>{ const d=readFoodForm(); if(!d.name||!isFinite(d.p)||!isFinite(d.k)){ toast("Nom, protéines et kcal requis"); return; }
+    const id=el.dataset.v||uid("f"); let rec;
+    if(d.mode==="unit"){ const w=d.w>0?d.w:100; rec={name:d.name,p:r2(d.p/w*100),k:r2(d.k/w*100),portion:w,unit:(d.unit||"unité").toLowerCase()}; }
+    else rec={name:d.name,p:d.p,k:d.k,portion:d.w>0?d.w:100};
+    closeSheet(); put("foods",id,rec); toast("Aliment enregistré"); },
   delFood:el=>{ closeSheet(); if(DEF_FOODS[el.dataset.v]) put("foods",el.dataset.v,{deleted:true}); else put("foods",el.dataset.v,null); },
   newRecipe:()=>sheetRecipe(null), editRecipe:el=>sheetRecipe(el.dataset.v),
   rmIng:el=>{ readRecipeForm(); ui.rDraft.items.splice(+el.dataset.i,1); drawRecipe(); },

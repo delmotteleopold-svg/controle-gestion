@@ -48,3 +48,9 @@ Dans cette version, les données restent sur le téléphone (pas de cloud Claude
   - Modèle `claude-opus-5-5`, réponse au format imposé (`output_config.format` json_schema = nom, items, proteines, kcal, confiance), modèle de secours `fallbacks: "default"` (en-tête `server-side-fallback-2026-07-01`), en-tête `anthropic-dangerous-direct-browser-access: true` (appel depuis le navigateur).
   - Messages d'erreur clairs : pas de clé, clé refusée, crédit épuisé, pas de réseau, Claude saturé, refus.
 - Coût indicatif : 2 à 3 centimes par repas (facturé sur le compte API, distinct de l'abonnement Claude).
+
+## Aliments comptés à l'unité (œuf, banane, whey…)
+- Stockage inchangé : `p` et `k` restent pour 100 g, `portion` = poids d'une pièce en g, `unit` = nom de la pièce.
+- Affichage et saisie par pièce : liste « 6,9 g prot · 80 kcal / œuf », ajout en nombre de pièces (½, 1, 2…), repas affiché « 2 œufs », recette « 1 œuf ».
+- Formulaire d'aliment : « Au poids (100 g) » ou « À l'unité » (prot. et kcal par pièce, poids facultatif ; sans poids, 100 g est pris par défaut, ce qui ne change pas les totaux). Passer d'un mode à l'autre convertit les valeurs déjà saisies.
+- Aliments de base à l'unité : œuf (55 g), banane (120 g), whey (dose de 30 g).
