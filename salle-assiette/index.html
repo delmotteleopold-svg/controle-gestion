@@ -24,22 +24,45 @@
   --r:24px; --r2:14px;
   --sans:-apple-system,BlinkMacSystemFont,"SF Pro Text","SF Pro Display","Segoe UI",Roboto,"Helvetica Neue",sans-serif;
   --round:ui-rounded,"SF Pro Rounded","Nunito",-apple-system,system-ui,sans-serif;
+  --hero:radial-gradient(120% 80% at 0% 0%,rgba(30,200,110,.30),transparent 60%),radial-gradient(90% 70% at 100% 8%,rgba(255,140,30,.30),transparent 62%),linear-gradient(180deg,transparent 55%,var(--bg));
+  --sheen:linear-gradient(180deg,rgba(255,255,255,.38),rgba(255,255,255,0));
+  --nav-shadow:inset 0 0 0 .5px var(--glass-line),inset 0 1px 0 rgba(255,255,255,.5),0 10px 34px rgba(30,20,5,.16),0 2px 6px rgba(30,20,5,.06);
+  --seg-on:var(--card); --btn-g:linear-gradient(180deg,var(--green-a),var(--green-b)); --btn-o:linear-gradient(180deg,var(--orange-a),var(--orange-b));
   --spring:cubic-bezier(.32,1.28,.48,1); --ease:cubic-bezier(.22,.8,.24,1);
 }
-@media (prefers-color-scheme:dark){:root{
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
   --bg:#0E0D0B; --bg2:#14120F; --card:#1C1A17; --elev:#1A1815; --ink:#F6F2EB; --ink2:#D9D3C8; --mute:#9A9387; --line:rgba(255,245,230,.10); --fill:#2A2723; --fill2:#34302B;
   --green:#30D987; --green-a:#5BF0A4; --green-b:#19B86A; --green2:rgba(48,217,135,.16); --green-ink:#4BE397;
   --orange:#FF9F2E; --orange-a:#FFC062; --orange-b:#FF7A1F; --orange2:rgba(255,159,46,.17); --orange-ink:#FFB15C;
   --grid:rgba(255,245,230,.08); --track-g:rgba(48,217,135,.17); --track-o:rgba(255,159,46,.17);
   --shadow:0 1px 0 rgba(255,255,255,.03) inset,0 8px 24px rgba(0,0,0,.35);
   --glass:rgba(38,35,31,.62); --glass-line:rgba(255,255,255,.12); --scrim:rgba(0,0,0,.45); --behind:#000;
-}}
+
+  --hero:radial-gradient(120% 80% at 0% 0%,rgba(48,217,135,.24),transparent 60%),radial-gradient(90% 70% at 100% 8%,rgba(255,150,40,.22),transparent 62%),linear-gradient(180deg,transparent 55%,var(--bg));
+  --sheen:linear-gradient(180deg,rgba(255,255,255,.09),rgba(255,255,255,0));
+  --nav-shadow:inset 0 0 0 .5px var(--glass-line),inset 0 1px 0 rgba(255,255,255,.1),0 10px 34px rgba(0,0,0,.5);
+  --seg-on:#4A453F; --btn-g:linear-gradient(180deg,#27C474,#0F8F4C); --btn-o:linear-gradient(180deg,#FFA53D,#E9690F);
+  color-scheme:dark;}}
+:root[data-theme="dark"]{
+  --bg:#0E0D0B; --bg2:#14120F; --card:#1C1A17; --elev:#1A1815; --ink:#F6F2EB; --ink2:#D9D3C8; --mute:#9A9387; --line:rgba(255,245,230,.10); --fill:#2A2723; --fill2:#34302B;
+  --green:#30D987; --green-a:#5BF0A4; --green-b:#19B86A; --green2:rgba(48,217,135,.16); --green-ink:#4BE397;
+  --orange:#FF9F2E; --orange-a:#FFC062; --orange-b:#FF7A1F; --orange2:rgba(255,159,46,.17); --orange-ink:#FFB15C;
+  --grid:rgba(255,245,230,.08); --track-g:rgba(48,217,135,.17); --track-o:rgba(255,159,46,.17);
+  --shadow:0 1px 0 rgba(255,255,255,.03) inset,0 8px 24px rgba(0,0,0,.35);
+  --glass:rgba(38,35,31,.62); --glass-line:rgba(255,255,255,.12); --scrim:rgba(0,0,0,.45); --behind:#000;
+
+  --hero:radial-gradient(120% 80% at 0% 0%,rgba(48,217,135,.24),transparent 60%),radial-gradient(90% 70% at 100% 8%,rgba(255,150,40,.22),transparent 62%),linear-gradient(180deg,transparent 55%,var(--bg));
+  --sheen:linear-gradient(180deg,rgba(255,255,255,.09),rgba(255,255,255,0));
+  --nav-shadow:inset 0 0 0 .5px var(--glass-line),inset 0 1px 0 rgba(255,255,255,.1),0 10px 34px rgba(0,0,0,.5);
+  --seg-on:#4A453F; --btn-g:linear-gradient(180deg,#27C474,#0F8F4C); --btn-o:linear-gradient(180deg,#FFA53D,#E9690F);
+  color-scheme:dark;}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-html{background:var(--behind)}
-body{margin:0;background:var(--behind);color:var(--ink);font:16px/1.35 var(--sans);-webkit-font-smoothing:antialiased;letter-spacing:-.15px;-webkit-text-size-adjust:100%}
+html{background:var(--bg)}
+html:has(body.sheet){background:var(--behind)}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.35 var(--sans);-webkit-font-smoothing:antialiased;letter-spacing:-.15px;-webkit-text-size-adjust:100%}
 main{position:relative;max-width:560px;margin:0 auto;padding:calc(14px + env(safe-area-inset-top)) 16px 128px;background:var(--bg);min-height:100vh;min-height:100dvh;overflow:hidden;
   transition:transform .42s var(--ease),border-radius .42s var(--ease),filter .42s var(--ease)}
-@media (min-width:561px){html,body{background:var(--bg)}}
+body.sheet{background:var(--behind)}
 h1{font-size:34px;font-weight:800;margin:2px 0 4px;letter-spacing:-.9px;line-height:1.08}
 h2{font-size:22px;font-weight:800;margin:26px 0 10px;letter-spacing:-.5px}
 .sub{color:var(--mute);font-size:14px}
@@ -59,8 +82,8 @@ h2{font-size:22px;font-weight:800;margin:26px 0 10px;letter-spacing:-.5px}
 .btn{position:relative;display:inline-flex;align-items:center;justify-content:center;gap:8px;border:0;border-radius:16px;padding:15px 18px;font:700 17px/1.1 var(--sans);letter-spacing:-.3px;background:var(--ink);color:var(--bg);cursor:pointer;
   transition:transform .25s var(--spring),filter .2s,opacity .2s;touch-action:manipulation}
 .btn .ic{width:20px;height:20px}
-.btn.g{background:linear-gradient(180deg,var(--green-a),var(--green-b));color:#fff;box-shadow:0 6px 18px -6px var(--green),inset 0 1px 0 rgba(255,255,255,.28)}
-.btn.o{background:linear-gradient(180deg,var(--orange-a),var(--orange-b));color:#fff;box-shadow:0 6px 18px -6px var(--orange),inset 0 1px 0 rgba(255,255,255,.3)}
+.btn.g{background:var(--btn-g);color:#fff;box-shadow:0 6px 18px -6px var(--green),inset 0 1px 0 rgba(255,255,255,.28)}
+.btn.o{background:var(--btn-o);color:#fff;box-shadow:0 6px 18px -6px var(--orange),inset 0 1px 0 rgba(255,255,255,.3)}
 .btn.l{background:var(--card);color:var(--ink);box-shadow:var(--shadow)}
 #sh .btn.l,.card .btn.l,.group .btn.l{background:var(--fill);box-shadow:none}
 .btn.w{width:100%} .btn.s{padding:9px 14px;font-size:15px;border-radius:999px}
@@ -117,11 +140,9 @@ select{-webkit-appearance:none;appearance:none;font-weight:600;color:var(--green
 .tile .ic{width:19px;height:19px}
 /* navigation flottante en verre */
 nav{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(12px + env(safe-area-inset-bottom));width:min(calc(100% - 28px),400px);background:var(--glass);-webkit-backdrop-filter:blur(26px) saturate(190%);backdrop-filter:blur(26px) saturate(190%);border-radius:999px;display:flex;justify-content:space-around;padding:6px;z-index:20;
-  box-shadow:inset 0 0 0 .5px var(--glass-line),inset 0 1px 0 rgba(255,255,255,.5),0 10px 34px rgba(30,20,5,.16),0 2px 6px rgba(30,20,5,.06);overflow:hidden;
+  box-shadow:var(--nav-shadow);overflow:hidden;
   transition:transform .42s var(--ease),opacity .3s}
-nav::before{content:"";position:absolute;inset:0 0 50% 0;border-radius:999px 999px 0 0;background:linear-gradient(180deg,rgba(255,255,255,.38),rgba(255,255,255,0));pointer-events:none}
-@media (prefers-color-scheme:dark){.btn.g{background:linear-gradient(180deg,#27C474,#0F8F4C)} .btn.o{background:linear-gradient(180deg,#FFA53D,#E9690F)}}
-@media (prefers-color-scheme:dark){nav::before{background:linear-gradient(180deg,rgba(255,255,255,.09),rgba(255,255,255,0))} nav{box-shadow:inset 0 0 0 .5px var(--glass-line),inset 0 1px 0 rgba(255,255,255,.1),0 10px 34px rgba(0,0,0,.5)}}
+nav::before{content:"";position:absolute;inset:0 0 50% 0;border-radius:999px 999px 0 0;background:var(--sheen);pointer-events:none}
 nav button{position:relative;flex:1;border:0;background:none;color:var(--mute);font:600 10.5px var(--sans);letter-spacing:0;padding:7px 0 6px;border-radius:999px;display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;transition:color .25s,background .3s,transform .25s var(--spring)}
 nav button .ic{width:25px;height:25px}
 nav button:active{transform:scale(.9)}
@@ -154,9 +175,7 @@ body.sheet nav{transform:translateX(-50%) translateY(140%);opacity:0}
 .enter>.hero{animation:fadeIn .8s both}
 @keyframes rise{from{opacity:0;transform:translateY(14px) scale(.985)}}
 /* accueil */
-.hero{position:absolute;left:0;right:0;top:0;height:420px;pointer-events:none;z-index:0;
-  background:radial-gradient(120% 80% at 0% 0%,rgba(30,200,110,.30),transparent 60%),radial-gradient(90% 70% at 100% 8%,rgba(255,140,30,.30),transparent 62%),linear-gradient(180deg,transparent 55%,var(--bg))}
-@media (prefers-color-scheme:dark){.hero{background:radial-gradient(120% 80% at 0% 0%,rgba(48,217,135,.24),transparent 60%),radial-gradient(90% 70% at 100% 8%,rgba(255,150,40,.22),transparent 62%),linear-gradient(180deg,transparent 55%,var(--bg))}}
+.hero{position:absolute;left:0;right:0;top:0;height:420px;pointer-events:none;z-index:0;background:var(--hero)}
 main>*:not(.hero){position:relative;z-index:1}
 .sync{display:flex;align-items:center;gap:5px;font-size:13px;color:var(--mute);font-weight:500;margin-top:2px}
 .sync .ic{width:14px;height:14px}
@@ -205,8 +224,7 @@ main>*:not(.hero){position:relative;z-index:1}
 /* repas / progrès */
 .seg{display:flex;background:var(--fill);border-radius:12px;padding:3px;margin:12px 0}
 .seg button{flex:1;border:0;background:none;border-radius:9px;padding:8px;font:600 14px var(--sans);cursor:pointer;color:var(--ink);transition:background .25s,box-shadow .25s}
-.seg button.on{background:var(--card);box-shadow:0 3px 8px rgba(0,0,0,.10),0 0 0 .5px rgba(0,0,0,.04)}
-@media (prefers-color-scheme:dark){.seg button.on{background:#4A453F}}
+.seg button.on{background:var(--seg-on);box-shadow:0 3px 8px rgba(0,0,0,.10),0 0 0 .5px rgba(0,0,0,.04)}
 .tag{display:inline-flex;align-items:center;gap:3px;font-size:13px;font-weight:800;padding:4px 9px;border-radius:99px;background:var(--green2);color:var(--green-ink);white-space:nowrap}
 .tag .ic{width:12px;height:12px}
 .tag.o{background:var(--orange2);color:var(--orange-ink)}
@@ -796,7 +814,43 @@ function sheetSettings(){
   <div class="gfoot">Reps visées et palier d'augmentation servent à la suggestion de charge.</div>
   <div class="ghead">Sauvegarde</div>
   <div class="group"><div class="cell ind" data-act="export"><div class="tile k">${ic("share")}</div><div class="grow t">Exporter</div>${CHEV}</div><div class="cell ind" data-act="import"><div class="tile k">${ic("download")}</div><div class="grow t">Importer</div>${CHEV}</div></div>
-  <div class="gfoot">${db?"Tes données sont synchronisées dans le cloud (privé). ":""}Exporte une copie de sécurité de temps en temps.</div>`);
+  <div class="gfoot">${db?"Tes données sont synchronisées dans le cloud (privé). ":""}Exporte une copie de temps en temps. ${exportNote()}</div>`);
+}
+/* ================= Export (garder une trace) ================= */
+const LS_EXP="salle_assiette_export"; // date du dernier export, propre à l'appareil (confort, pas une donnée)
+function lastExport(){ try{ return localStorage.getItem(LS_EXP); }catch(e){ return null; } }
+function markExport(){ try{ localStorage.setItem(LS_EXP,today()); }catch(e){} }
+function exportNote(){ const d=lastExport(); if(!d) return "Aucun export depuis cet appareil."; const n=Math.round((new Date(today())-new Date(d))/86400000); return "Dernier export : "+(n<=0?"aujourd'hui":n===1?"hier":"il y a "+n+" jours")+"."; }
+const dec=v=>v===""||v==null||!isFinite(+v)?"":String(r1(+v)).replace(".",",");
+function csv(rows){ const c=v=>{ v=v==null?"":String(v); return /[;"\r\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v; }; return "\uFEFF"+rows.map(r=>r.map(c).join(";")).join("\r\n"); }
+const CSV={
+  seances:{t:"Séances",d:"Une ligne par série : charge, reps, validée",rows(){ const R=[["date","seance","heure_debut","duree_min","exercice","serie","type","charge_kg","reps","validee"]];
+    for(const s of sessionsSorted().slice().reverse()){ if(!s.done) continue; const h=s.start?new Date(s.start).toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"}):"", du=s.end&&s.start?Math.round((s.end-s.start)/60000):"";
+      for(const e of s.ex||[]){ let wi=0; for(const st of e.sets||[]) R.push([s.date,s.name,h,du,exById(e.id).name,st.warm?"É":++wi,st.warm?"échauffement":"travail",dec(st.w),st.r??"",st.done?"oui":"non"]); } } return R; }},
+  poids:{t:"Pesées",d:"Date et poids",rows(){ return [["date","poids_kg"]].concat(weights().map(w=>[w.d,dec(w.y)])); }},
+  repas:{t:"Repas",d:"Chaque aliment ou plat ajouté",rows(){ const R=[["date","heure","repas","quantite_g","proteines_g","kcal"]];
+    for(const k of Object.keys(S.days).sort()) for(const m of S.days[k].meals||[]) R.push([k,m.t||"",m.name,m.g?Math.round(m.g):"",dec(m.p),Math.round(+m.k||0)]); return R; }},
+  jours:{t:"Bilan par jour",d:"Protéines, calories, poids et séances",rows(){ const g=cfg().goals, R=[["date","proteines_g","kcal","objectif_proteines_atteint","poids_kg","seances"]];
+    const n={}; for(const s of sessionsSorted()) if(s.done) n[s.date]=(n[s.date]||0)+1;
+    const keys=[...new Set(Object.keys(S.days).concat(Object.keys(n)))].sort();
+    for(const k of keys){ const t=dayTotals(k), d=dayOf(k); R.push([k,dec(t.p),Math.round(t.k),t.p>=g.prot?"oui":"non",dec(d.weight),n[k]||0]); } return R; }}
+};
+/* Ouvre l'enregistrement du fichier : version Claude (downloads) ou navigateur (lien de téléchargement). */
+async function saveFile(filename,data,mime){
+  if(dl){ try{ await dl.save({filename,data}); return "ok"; }catch(e){ if(e&&e.code==="declined") return "no"; } }
+  if(!(window.claude&&window.claude.use)){ try{ const u=URL.createObjectURL(new Blob([data],{type:mime})), a=document.createElement("a"); a.href=u; a.download=filename; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(u),5000); return "ok"; }catch(e){} }
+  return "fail";
+}
+function copySheet(title,data){ sheet(`<h2 style="margin-top:0">${esc(title)}</h2><div class="sub">Le téléchargement n'est pas possible ici : copie ce texte et colle-le dans un fichier ou une note.</div><textarea id="cpT" rows="9" style="margin-top:12px;font:12px ui-monospace,monospace">${esc(data)}</textarea><button class="btn g w" style="margin-top:10px" data-act="copyTxt">Copier</button>`); }
+function sheetExport(){
+  const ns=sessionsSorted().filter(s=>s.done).length, nw=weights().length, nm=Object.values(S.days).reduce((a,d)=>a+(d.meals||[]).length,0);
+  const cnt={seances:ns+" séance"+(ns>1?"s":""),poids:nw+" pesée"+(nw>1?"s":""),repas:nm+" ajout"+(nm>1?"s":""),jours:Object.keys(S.days).length+" jours"};
+  sheet(`<h2 style="margin-top:0">Exporter mes données</h2><div class="sub">Garde une trace de tes séances, pesées et repas. ${exportNote()}</div>
+  <div class="ghead">Sauvegarde complète</div>
+  <div class="group"><div class="cell ind" data-act="exportJson"><div class="tile">${ic("download")}</div><div class="grow"><div class="t">Tout, réimportable (.json)</div><div class="sub">À garder en lieu sûr ; se recharge avec « Importer »</div></div>${CHEV}</div></div>
+  <div class="ghead">Historique lisible (.csv)</div>
+  <div class="group">${Object.entries(CSV).map(([k,c])=>`<div class="cell ind" data-act="exportCsv" data-v="${k}"><div class="tile o">${ic("chart")}</div><div class="grow"><div class="t">${c.t}</div><div class="sub">${c.d} · ${cnt[k]}</div></div>${CHEV}</div>`).join("")}</div>
+  <div class="gfoot">Les fichiers .csv s'ouvrent dans Excel, Numbers ou Google Sheets (séparateur point-virgule).</div>`);
 }
 function sheetTpl(id){
   const c=cfg(), t=id?c.templates.find(x=>x.id===id):{id:"",name:"",ex:[]};
@@ -893,9 +947,13 @@ const A={
   delTpl:()=>{ const id=ui.tplDraft.id; saveCfg(c=>c.templates=c.templates.filter(x=>x.id!==id)); closeSheet(); },
   editEx:el=>sheetEx(el.dataset.v),
   saveEx:el=>{ const name=document.getElementById("en").value.trim(); if(!name) return; const e={id:el.dataset.v||uid("e"),name,target:num(document.getElementById("et").value)||10,inc:num(document.getElementById("ei").value)||2.5}; saveCfg(c=>{ const i=c.exercises.findIndex(x=>x.id===e.id); if(i>=0) c.exercises[i]=e; else c.exercises.push(e); }); closeSheet(); toast("Exercice enregistré"); },
-  export:async()=>{ const data=JSON.stringify({app:"salle-assiette",v:1,date:new Date().toISOString(),...S}); const fn="salle-assiette-"+today()+".json";
-    if(dl){ try{ await dl.save({filename:fn,data}); toast("Sauvegarde exportée"); return; }catch(e){} }
-    try{ await navigator.clipboard.writeText(data); toast("Copié dans le presse-papiers"); }catch(e){ sheet(`<h2 style="margin-top:0">Copie ta sauvegarde</h2><textarea rows="8" style="width:100%;font:12px monospace">${esc(data)}</textarea>`); } },
+  export:sheetExport,
+  exportJson:async()=>{ const data=JSON.stringify({app:"salle-assiette",v:1,date:new Date().toISOString(),...S}); const fn="salle-assiette-"+today()+".json";
+    const r=await saveFile(fn,data,"application/json"); if(r==="ok"){ markExport(); toast("Sauvegarde exportée"); return; } if(r==="no") return;
+    try{ await navigator.clipboard.writeText(data); markExport(); toast("Copié dans le presse-papiers"); }catch(e){ copySheet("Copie ta sauvegarde",data); } },
+  exportCsv:async el=>{ const c=CSV[el.dataset.v], data=csv(c.rows()), fn="salle-assiette-"+el.dataset.v+"-"+today()+".csv";
+    const r=await saveFile(fn,data,"text/csv;charset=utf-8"); if(r==="ok"){ markExport(); toast("Fichier exporté : "+c.t); } else if(r==="fail") copySheet(c.t,data); },
+  copyTxt:()=>{ const t=document.getElementById("cpT"); try{ navigator.clipboard.writeText(t.value).then(()=>{ markExport(); toast("Copié"); },()=>{ t.select(); }); }catch(e){ t.select(); } },
   import:sheetImport,
   doImport:()=>{ try{ const o=JSON.parse(document.getElementById("impT").value); if(o.app!=="salle-assiette") throw 0; if(o.config) put("config",null,o.config); for(const col of ["foods","recipes","days","sessions"]) for(const id in (o[col]||{})) put(col,id,o[col][id]); closeSheet(); toast("Import terminé"); }catch(e){ toast("Fichier non reconnu"); } }
 };
