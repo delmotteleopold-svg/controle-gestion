@@ -26,3 +26,17 @@ Fond beige, vert + orange, coins très arrondis, barre de navigation flottante f
 
 ## Thème
 Clair ou sombre selon le téléphone ; dans claude.ai, le choix clair/sombre du site (`data-theme`) l'emporte.
+
+## Balayage entre onglets
+Accueil ↔ Séance ↔ Repas ↔ Progrès d'un glissé horizontal, sur le modèle de la pagination iOS (celle d'Instagram) :
+- la page suit le doigt 1:1, la page voisine arrive collée ; l'onglet de la barre suit en direct ;
+- le geste ne démarre qu'après 10 px et si le mouvement est plus horizontal que vertical (×1,15), sinon le défilement vertical reste normal ;
+- aux bords (Accueil à gauche, Progrès à droite) : élastique iOS `(1 − 1/(x·0,55/l + 1))·l` ;
+- changement de page si on dépasse la moitié de l'écran ou sur un coup de doigt > 0,3 px/ms ; sinon retour ;
+- arrivée en 200 à 380 ms selon la vitesse du doigt (courbe `cubic-bezier(.2,.9,.3,1)`) ;
+- pas de balayage dans les champs, les stepper de charge/reps, la barre du bas ni quand une fenêtre est ouverte.
+
+## Version installée sur l'écran d'accueil (GitHub Pages)
+Sur `*.github.io`, la page ajoute un manifest (icône intégrée) et enregistre `salle-assiette/sw.js` pour s'ouvrir sans réseau.
+`sw.js` ne nettoie que les caches `salle-assiette-…` : il ne touche jamais au cache de l'appli à la racine.
+Dans cette version, les données restent sur le téléphone (pas de cloud Claude ni d'estimation photo) : exporter régulièrement.
