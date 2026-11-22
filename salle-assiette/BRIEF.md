@@ -36,10 +36,12 @@ Accueil ↔ Séance ↔ Repas ↔ Progrès d'un glissé horizontal, sur le modè
 - arrivée en 200 à 380 ms selon la vitesse du doigt (courbe `cubic-bezier(.2,.9,.3,1)`) ;
 - pas de balayage dans les champs, les stepper de charge/reps, la barre du bas ni quand une fenêtre est ouverte.
 
-## Version installée sur l'écran d'accueil (GitHub Pages)
-Sur `*.github.io`, la page ajoute un manifest (icône intégrée) et enregistre `salle-assiette/sw.js` pour s'ouvrir sans réseau.
-`sw.js` ne nettoie que les caches `salle-assiette-…` : il ne touche jamais au cache de l'appli à la racine.
-Dans cette version, les données restent sur le téléphone (pas de cloud Claude ni d'estimation photo) : exporter régulièrement.
+## Version installable (PWA) — détails dans `README.md`
+- Partout où `manifest.json` est servi à côté de la page (GitHub Pages, Cloudflare Pages, Netlify, localhost) : manifest, service worker `sw.js`, bandeau « Installer l'appli » (Android : invitation Chrome ; iPhone : guide en 3 étapes).
+- Dans claude.ai, `manifest.json` n'existe pas : rien n'est ajouté.
+- `sw.js` ne nettoie que les caches `salle-assiette-…` : il ne touche jamais au cache de l'appli à la racine.
+- Stockage sur l'appareil : **IndexedDB** (module `Store`), avec reprise automatique de l'ancien `localStorage` et repli sur `localStorage` si besoin. `saveLocal()` garde le même rôle.
+- Dans cette version, les données restent sur le téléphone (pas de cloud Claude ni d'estimation photo sans clé API) : exporter régulièrement, en attendant le backend.
 
 ## Estimation des repas hors de claude.ai (photo / texte)
 - Version claude.ai : inchangée, passe par `use("sample")`.

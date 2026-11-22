@@ -3,6 +3,8 @@
 « Ma vie d'étudiant » : petite application web installable (PWA) pour suivre son budget, ses révisions et sa lecture.
 Tout est dans `index.html` (HTML, CSS et JavaScript) ; `sw.js` permet d'ouvrir l'appli sans connexion.
 
+> Le dossier [`salle-assiette/`](salle-assiette/README.md) contient une deuxième appli, **Salle & Assiette** (sport et alimentation), avec son propre README.
+
 ## Où sont les données ?
 
 Dans le navigateur de l'appareil (`localStorage`), sous les clés `cg.budgets`, `cg.expenses`, `cg.revision`,

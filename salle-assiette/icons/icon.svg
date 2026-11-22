@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+<defs>
+ <radialGradient id="a" cx="0" cy="0" r="1.1"><stop offset="0" stop-color="#CDEFD9"/><stop offset=".7" stop-color="#F5EFE5" stop-opacity="0"/></radialGradient>
+ <radialGradient id="b" cx="1" cy="1" r="1.1"><stop offset="0" stop-color="#FFD9B0"/><stop offset=".7" stop-color="#F5EFE5" stop-opacity="0"/></radialGradient>
+ <linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3EDC8A"/><stop offset="1" stop-color="#0E9F57"/></linearGradient>
+ <linearGradient id="o" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFB547"/><stop offset="1" stop-color="#FF6A1A"/></linearGradient>
+</defs>
+<rect width="512" height="512" fill="#F5EFE5"/><rect width="512" height="512" fill="url(#a)"/><rect width="512" height="512" fill="url(#b)"/>
+<circle cx="256" cy="256" r="150" fill="none" stroke="#14B866" stroke-opacity=".18" stroke-width="34"/>
+<circle cx="256" cy="256" r="150" fill="none" stroke="url(#g)" stroke-width="34" stroke-linecap="round" stroke-dasharray="772.8317927830891 942.4777960769379" transform="rotate(-90 256 256)"/>
+<circle cx="256" cy="256" r="88" fill="none" stroke="#FF8A1C" stroke-opacity=".18" stroke-width="34"/>
+<circle cx="256" cy="256" r="88" fill="none" stroke="url(#o)" stroke-width="34" stroke-linecap="round" stroke-dasharray="375.9858087816264 552.9203070318035" transform="rotate(-90 256 256)"/>
+</svg>
