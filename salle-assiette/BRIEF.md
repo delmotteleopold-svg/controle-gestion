@@ -12,7 +12,19 @@ Appli perso de Leo : suivi des séances (charges, progression), du poids et de l
 - La logique des données (objet `S`, fonctions `put`, `queue`, `flush`, `initCloud`), la règle de suggestion de charge (`suggest`), les noms de champs enregistrés.
 
 ## Identité visuelle actuelle
-Fond beige, vert + orange, coins très arrondis, barre de navigation flottante façon Instagram.
+Fond beige, coins très arrondis, barre de navigation flottante façon Instagram.
+
+### Système de couleurs (règle à suivre pour tout nouvel écran)
+| Rôle | Couleur | Jetons CSS | Où |
+|---|---|---|---|
+| Donnée « protéines / progrès / fait » | vert `#14B866` | `--green`, `--green-ink`, `--green2` | anneau et barre protéines, série validée, onglet actif, objectif atteint |
+| Donnée « calories / énergie / échauffement » | orange `#FF8A1C` | `--orange`, `--orange-ink`, `--orange2` | anneau et barre calories, échauffement, « Reste … g » |
+| **Action** (couleur dissonante) | **violet électrique `#5B3DF5`** (sombre : `#8B78FF`) | `--act`, `--act-ink`, `--act2`, `--btn-a` | tout ce sur quoi on veut que l'utilisateur appuie : `.btn.a` (boutons principaux), `.chip.a` (ajouts rapides), `.c-a` (liens « Nouveau… »), bouton de série à valider, bouton « Nouvelle version » |
+
+- Le vert et l'orange **décrivent** ; le violet **fait agir**. Ne jamais mettre de violet sur une donnée, ni de vert/orange sur un bouton principal.
+- Bouton de série : violet tant qu'elle reste à faire, vert une fois validée (on « transforme » une action en progrès).
+- Exceptions voulues : confirmation destructive (« Oui, annuler ») en orange ; boutons secondaires en neutre (`.btn.l`) ; barre de navigation en vert (elle indique où l'on est, ce n'est pas un appel à l'action).
+- Contrastes vérifiés (WCAG AA, ≥ 4,5) : blanc sur violet 6,1 ; textes gris `--mute` `#6F685C` 5,5 ; `--orange-ink` `#A84E00` 4,9 ; `--green-ink` `#087A41` 5,4.
 
 ## Exporter mes données (Réglages › Sauvegarde › Exporter)
 - **Tout, réimportable (.json)** : même format qu'avant (`{app:"salle-assiette", v:1, date, config, foods, recipes, days, sessions}`), relu par « Importer ».

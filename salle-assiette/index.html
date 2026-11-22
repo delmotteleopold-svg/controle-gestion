@@ -22,9 +22,12 @@
 /* ================= Thème (clair par défaut, sombre selon le téléphone) ================= */
 :root{
   color-scheme:light dark;
-  --bg:#F5EFE5; --bg2:#EFE7DA; --card:#FFFFFF; --elev:#F8F3EB; --ink:#1C1A17; --ink2:#3A3631; --mute:#8D8679; --line:rgba(60,50,35,.12); --fill:#F1EBE1; --fill2:#E8E0D2;
-  --green:#14B866; --green-a:#3EDC8A; --green-b:#0E9F57; --green2:rgba(20,184,102,.13); --green-ink:#0B8A4A;
-  --orange:#FF8A1C; --orange-a:#FFB547; --orange-b:#FF6A1A; --orange2:rgba(255,138,28,.15); --orange-ink:#C85F06;
+  --bg:#F5EFE5; --bg2:#EFE7DA; --card:#FFFFFF; --elev:#F8F3EB; --ink:#1C1A17; --ink2:#3A3631; --mute:#6F685C; --line:rgba(60,50,35,.12); --fill:#F1EBE1; --fill2:#E8E0D2;
+  --green:#14B866; --green-a:#3EDC8A; --green-b:#0E9F57; --green2:rgba(20,184,102,.13); --green-ink:#087A41;
+  --orange:#FF8A1C; --orange-a:#FFB547; --orange-b:#FF6A1A; --orange2:rgba(255,138,28,.15); --orange-ink:#A84E00;
+  /* Système de couleurs : vert + orange = les DONNÉES (protéines/progrès, calories/échauffement) ;
+     violet électrique = les ACTIONS (tout ce sur quoi on veut que l'utilisateur appuie). Dissonant exprès : l'œil le trouve tout de suite. */
+  --act:#5B3DF5; --act-ink:#5032E0; --act2:rgba(91,61,245,.12); --btn-a:linear-gradient(180deg,#7254FF,#4D2EE3);
   --red:#FF3B30; --grid:rgba(60,50,35,.09); --track-g:rgba(20,184,102,.16); --track-o:rgba(255,138,28,.17);
   --shadow:0 1px 2px rgba(60,40,10,.04),0 8px 24px rgba(60,40,10,.06);
   --glass:rgba(255,252,247,.66); --glass-line:rgba(255,255,255,.75); --scrim:rgba(20,14,6,.32); --behind:#1A1713;
@@ -41,6 +44,7 @@
   --bg:#0E0D0B; --bg2:#14120F; --card:#1C1A17; --elev:#1A1815; --ink:#F6F2EB; --ink2:#D9D3C8; --mute:#9A9387; --line:rgba(255,245,230,.10); --fill:#2A2723; --fill2:#34302B;
   --green:#30D987; --green-a:#5BF0A4; --green-b:#19B86A; --green2:rgba(48,217,135,.16); --green-ink:#4BE397;
   --orange:#FF9F2E; --orange-a:#FFC062; --orange-b:#FF7A1F; --orange2:rgba(255,159,46,.17); --orange-ink:#FFB15C;
+  --act:#8B78FF; --act-ink:#A493FF; --act2:rgba(139,120,255,.18); --btn-a:linear-gradient(180deg,#7A63FF,#5638EE);
   --grid:rgba(255,245,230,.08); --track-g:rgba(48,217,135,.17); --track-o:rgba(255,159,46,.17);
   --shadow:0 1px 0 rgba(255,255,255,.03) inset,0 8px 24px rgba(0,0,0,.35);
   --glass:rgba(38,35,31,.62); --glass-line:rgba(255,255,255,.12); --scrim:rgba(0,0,0,.45); --behind:#000;
@@ -54,6 +58,7 @@
   --bg:#0E0D0B; --bg2:#14120F; --card:#1C1A17; --elev:#1A1815; --ink:#F6F2EB; --ink2:#D9D3C8; --mute:#9A9387; --line:rgba(255,245,230,.10); --fill:#2A2723; --fill2:#34302B;
   --green:#30D987; --green-a:#5BF0A4; --green-b:#19B86A; --green2:rgba(48,217,135,.16); --green-ink:#4BE397;
   --orange:#FF9F2E; --orange-a:#FFC062; --orange-b:#FF7A1F; --orange2:rgba(255,159,46,.17); --orange-ink:#FFB15C;
+  --act:#8B78FF; --act-ink:#A493FF; --act2:rgba(139,120,255,.18); --btn-a:linear-gradient(180deg,#7A63FF,#5638EE);
   --grid:rgba(255,245,230,.08); --track-g:rgba(48,217,135,.17); --track-o:rgba(255,159,46,.17);
   --shadow:0 1px 0 rgba(255,255,255,.03) inset,0 8px 24px rgba(0,0,0,.35);
   --glass:rgba(38,35,31,.62); --glass-line:rgba(255,255,255,.12); --scrim:rgba(0,0,0,.45); --behind:#000;
@@ -90,6 +95,7 @@ h2{font-size:22px;font-weight:800;margin:26px 0 10px;letter-spacing:-.5px}
   transition:transform .25s var(--spring),filter .2s,opacity .2s;touch-action:manipulation}
 .btn .ic{width:20px;height:20px}
 .btn.g{background:var(--btn-g);color:#fff;box-shadow:0 6px 18px -6px var(--green),inset 0 1px 0 rgba(255,255,255,.28)}
+.btn.a{background:var(--btn-a);color:#fff;box-shadow:0 6px 18px -6px var(--act),inset 0 1px 0 rgba(255,255,255,.26)}
 .btn.o{background:var(--btn-o);color:#fff;box-shadow:0 6px 18px -6px var(--orange),inset 0 1px 0 rgba(255,255,255,.3)}
 .btn.l{background:var(--card);color:var(--ink);box-shadow:var(--shadow)}
 #sh .btn.l,.card .btn.l,.group .btn.l{background:var(--fill);box-shadow:none}
@@ -103,7 +109,7 @@ h2{font-size:22px;font-weight:800;margin:26px 0 10px;letter-spacing:-.5px}
 .chip{display:inline-flex;align-items:center;gap:5px;border-radius:999px;padding:8px 13px;background:var(--fill);font:600 14px var(--sans);margin:0 6px 7px 0;cursor:pointer;border:0;color:var(--ink);transition:transform .25s var(--spring),background .2s}
 .chip .ic{width:14px;height:14px}
 .chip.on{background:var(--ink);color:var(--bg)}
-.chip.g{background:var(--green2);color:var(--green-ink)} .chip.o{background:var(--orange2);color:var(--orange-ink)}
+.chip.g{background:var(--green2);color:var(--green-ink)} .chip.a{background:var(--act2);color:var(--act-ink)} .chip.o{background:var(--orange2);color:var(--orange-ink)}
 .chip.del{background:none;color:var(--red);font-weight:600}
 .chip.ghost{background:none;color:var(--mute)}
 .icb{display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:50%;border:0;background:var(--fill);color:var(--mute);cursor:pointer;flex:none;padding:0;transition:transform .25s var(--spring)}
@@ -170,7 +176,7 @@ body.sheet nav{transform:translateX(-50%) translateY(140%);opacity:0}
   transform:translateX(-50%);box-shadow:0 10px 30px rgba(0,0,0,.28)}
 #toast.on{display:flex;animation:island .6s var(--spring) both}
 #toast.off{display:flex;animation:islandOut .35s ease-in both}
-#maj{position:fixed;top:calc(10px + env(safe-area-inset-top));left:50%;transform:translateX(-50%);z-index:49;display:flex;align-items:center;gap:8px;border:0;border-radius:999px;padding:10px 16px;background:var(--btn-g);color:#fff;font:700 15px var(--sans);box-shadow:0 8px 24px -6px var(--green);cursor:pointer;white-space:nowrap}
+#maj{position:fixed;top:calc(10px + env(safe-area-inset-top));left:50%;transform:translateX(-50%);z-index:49;display:flex;align-items:center;gap:8px;border:0;border-radius:999px;padding:10px 16px;background:var(--btn-a);color:#fff;font:700 15px var(--sans);box-shadow:0 8px 24px -6px var(--act);cursor:pointer;white-space:nowrap}
 #maj .ic{width:16px;height:16px}
 #toast .dot{width:28px;height:28px;border-radius:50%;background:var(--green);display:flex;align-items:center;justify-content:center;flex:none}
 #toast .dot .ic{width:16px;height:16px;color:#fff}
@@ -204,7 +210,7 @@ main>*:not(.hero){position:relative;z-index:1}
 .rstat .k{font-size:15px;font-weight:700;letter-spacing:-.2px}
 .rstat .v{font-family:var(--round);font-size:26px;font-weight:800;letter-spacing:-.4px;line-height:1.1}
 .rstat .v small{font-size:16px;font-weight:700;color:var(--mute)}
-.c-g{color:var(--green-ink)} .c-o{color:var(--orange-ink)}
+.c-g{color:var(--green-ink)} .c-o{color:var(--orange-ink)} .c-a{color:var(--act-ink)}
 .dots{display:flex;gap:6px}.dots i{width:14px;height:14px;border-radius:50%;background:var(--track-g)}.dots i.on{background:linear-gradient(160deg,var(--green-a),var(--green-b));box-shadow:0 2px 6px -1px var(--green)}
 /* séance */
 .ex{background:var(--card);border-radius:var(--r);padding:16px 14px 12px;margin:12px 0;box-shadow:var(--shadow)}
@@ -227,9 +233,9 @@ main>*:not(.hero){position:relative;z-index:1}
 .step button .ic{width:15px;height:15px}
 .step input{border:0;background:none;text-align:center;padding:0;width:100%;min-width:0;font-weight:800;font-size:18px;letter-spacing:-.3px;border-radius:0}
 .step input:focus{box-shadow:none}
-.step:focus-within{box-shadow:0 0 0 2px var(--green)}
+.step:focus-within{box-shadow:0 0 0 2px var(--act)}
 .sethead{display:grid;grid-template-columns:30px 1fr 1fr 44px;gap:7px;margin-top:12px;padding:0 4px;font-size:11px;font-weight:700;color:var(--mute);text-transform:uppercase;text-align:center;letter-spacing:.3px}
-.ok{width:42px;height:42px;border-radius:50%;border:0;background:var(--fill);cursor:pointer;color:var(--mute);display:flex;align-items:center;justify-content:center;padding:0;justify-self:center;transition:background .25s,color .25s,transform .25s var(--spring)}
+.ok{width:42px;height:42px;border-radius:50%;border:0;background:var(--act2);cursor:pointer;color:var(--act-ink);display:flex;align-items:center;justify-content:center;padding:0;justify-self:center;transition:background .25s,color .25s,transform .25s var(--spring)}
 .ok .ic{width:20px;height:20px}
 .ok.on{background:linear-gradient(160deg,var(--green-a),var(--green-b));color:#fff;box-shadow:0 4px 12px -3px var(--green)}
 .hint{font-size:13.5px;margin-top:4px;display:flex;gap:5px;align-items:flex-start}
@@ -577,7 +583,7 @@ function viewHome(){
         <div class="rstat"><div class="k c-o">Calories</div><div class="v">${fr(t.k,0)}<small> kcal</small></div><div class="sub">sur ${fr(c.goals.kcal,0)}</div></div>
       </div></div>
   </div>
-  ${act?`<button class="btn o w" data-act="tab" data-v="gym">${ic("play")}Reprendre la séance ${esc(act.name)}</button>`:`<button class="btn g w" data-act="newSession">${ic("plus")}Démarrer une séance</button>`}
+  ${act?`<button class="btn a w" data-act="tab" data-v="gym">${ic("play")}Reprendre la séance ${esc(act.name)}</button>`:`<button class="btn a w" data-act="newSession">${ic("plus")}Démarrer une séance</button>`}
   <div class="grid2" style="margin-top:12px">
     <div class="card" style="margin:0;display:flex;flex-direction:column"><div class="row between"><div class="lbl">Poids</div><span class="tile" style="width:28px;height:28px;border-radius:9px">${ic("scale")}</span></div>
       <div class="big" style="margin-top:6px">${cur!=null?fr(cur)+'<span class="unit"> kg</span>':"—"}</div>
@@ -608,7 +614,7 @@ function viewGym(){
   if(!act){
     const c=cfg(), hist=sessionsSorted().filter(s=>s.done).slice(0,8);
     return `<h1>Séance</h1><div class="sub">Choisis ta séance : tes charges de la dernière fois sont pré-remplies.</div>
-    ${c.templates.map((t,i)=>`<div class="card row" style="gap:14px"><div class="tile ${i%2?"o":""}" style="width:50px;height:50px;border-radius:15px">${ic("dumbbell")}</div><div style="flex:1;min-width:0"><div class="mid" style="font-size:19px">${esc(t.name)}</div><div class="sub">${t.ex.length} exercices · ${esc(t.ex.slice(0,3).map(i=>exById(i).name).join(", "))}…</div></div><button class="btn g s" data-act="start" data-v="${t.id}">${ic("play")}Go</button></div>`).join("")}
+    ${c.templates.map((t,i)=>`<div class="card row" style="gap:14px"><div class="tile ${i%2?"o":""}" style="width:50px;height:50px;border-radius:15px">${ic("dumbbell")}</div><div style="flex:1;min-width:0"><div class="mid" style="font-size:19px">${esc(t.name)}</div><div class="sub">${t.ex.length} exercices · ${esc(t.ex.slice(0,3).map(i=>exById(i).name).join(", "))}…</div></div><button class="btn a s" data-act="start" data-v="${t.id}">${ic("play")}Go</button></div>`).join("")}
     <button class="btn l w" data-act="start" data-v="">${ic("plus")}Séance libre</button>
     ${hist.length?`<div class="ghead">Historique</div><div class="group">${hist.map(s=>`<div class="cell" data-act="viewSession" data-v="${s.id}"><div class="grow"><div class="t">${esc(s.name)}</div><div class="sub">${fmtDay(s.date)} · ${(s.ex||[]).length} exercices${s.end&&s.start?" · "+Math.round((s.end-s.start)/60000)+" min":""}</div></div>${CHEV}</div>`).join("")}</div>`:""}`;
   }
@@ -617,7 +623,7 @@ function viewGym(){
   ${(s.ex||[]).map((e,ei)=>exCard(s,e,ei)).join("")}
   <button class="btn l w" data-act="addEx">${ic("plus")}Ajouter un exercice</button>
   <div style="height:10px"></div>
-  <button class="btn g w" data-act="finish">${ic("check")}Terminer la séance</button>
+  <button class="btn a w" data-act="finish">${ic("check")}Terminer la séance</button>
   <div class="center" style="margin-top:12px"><button class="chip del" data-act="cancelSession">Annuler la séance</button></div>`;
 }
 function exCard(s,e,ei){
@@ -652,11 +658,11 @@ function viewFood(){
     <div class="bar o" style="margin-top:8px"><i style="width:${Math.min(100,t.k/c.goals.kcal*100)}%"></i></div>
   </div>
   <div class="actions">
-    <button class="btn g" data-act="addFood">${ic("plus")}Ajouter</button>
-    <button class="btn o" data-act="aiPhoto">${ic("camera")}Photo</button>
+    <button class="btn a" data-act="addFood">${ic("plus")}Ajouter</button>
+    <button class="btn a" data-act="aiPhoto">${ic("camera")}Photo</button>
   </div>
   <button class="btn l w" data-act="aiText">${ic("sparkles")}Décrire mon repas à Claude</button>
-  ${recent.length?`<h2>Encore une fois ?</h2><div>${recent.map((r,i)=>`<button class="chip g" data-act="readd" data-i="${i}">${ic("plus")}${esc(r.name)} · ${fr(r.p,0)} g</button>`).join("")}</div>`:""}
+  ${recent.length?`<h2>Encore une fois ?</h2><div>${recent.map((r,i)=>`<button class="chip a" data-act="readd" data-i="${i}">${ic("plus")}${esc(r.name)} · ${fr(r.p,0)} g</button>`).join("")}</div>`:""}
   <div class="ghead">Mangé ${k===today()?"aujourd'hui":"ce jour-là"}</div>
   <div class="group">${(d.meals||[]).length?(d.meals||[]).map((m,i)=>`<div class="cell" style="padding-right:8px"><div class="grow"><div class="t">${esc(m.name)}</div><div class="sub">${m.g?qtyLabel(m)+" · ":""}${m.t||""}</div></div><div style="text-align:right"><span class="tag">${fr(m.p,0)} g</span><div class="sub num" style="margin-top:3px">${fr(m.k,0)} kcal</div></div><button class="icb plain" data-act="rmMeal" data-i="${i}" aria-label="Supprimer">${ic("xmark")}</button></div>`).join(""):`<div class="empty">Rien pour l'instant</div>`}</div>
   ${weightRowFor(k)}`;
@@ -676,7 +682,7 @@ function viewProg(){
     if(ui.exSel){
       const ex=exById(ui.exSel), h=exHistory(ui.exSel);
       const best=h.length?Math.max(...h.map(x=>x.top)):0;
-      body=`<button class="chip ghost" data-act="exSel" data-v="" style="padding-left:0;color:var(--green-ink)">${ic("chevL")}Tous les exercices</button><div class="card"><div class="mid">${esc(ex.name)}</div><div class="row" style="gap:6px;margin-top:4px"><span class="sub">Charge max de travail par séance</span>${best?`<span class="tag">${ic("trophy")}${fr(best)} kg</span>`:""}</div>${lineChart(h.map(x=>({d:x.d,y:x.top})),{unit:" kg"})}</div>
+      body=`<button class="chip ghost" data-act="exSel" data-v="" style="padding-left:0;color:var(--act-ink)">${ic("chevL")}Tous les exercices</button><div class="card"><div class="mid">${esc(ex.name)}</div><div class="row" style="gap:6px;margin-top:4px"><span class="sub">Charge max de travail par séance</span>${best?`<span class="tag">${ic("trophy")}${fr(best)} kg</span>`:""}</div>${lineChart(h.map(x=>({d:x.d,y:x.top})),{unit:" kg"})}</div>
       <div class="group">${h.slice().reverse().map(x=>`<div class="cell"><div class="grow">${fmtDay(x.d)}</div><span class="sub num">${x.sets.map(s=>fr(+s.w)+"×"+s.r).join(" · ")}</span></div>`).join("")||'<div class="empty">Pas encore de séance terminée avec cet exercice.</div>'}</div>`;
     } else {
       const rows=cfg().exercises.map(e=>({e,h:exHistory(e.id)})).sort((a,b)=>b.h.length-a.h.length);
@@ -685,7 +691,7 @@ function viewProg(){
   } else if(ui.prog==="poids"){
     const w=weights(), g=cfg().goals, cur=w.length?w[w.length-1].y:null, target=cur!=null&&cur>=g.w1?g.w2:g.w1;
     let trend=""; if(w.length>=2){ const a=w[Math.max(0,w.length-8)], b=w[w.length-1]; const days=(new Date(b.d)-new Date(a.d))/86400000||1; const perW=(b.y-a.y)/days*7; trend=`<div class="sub" style="margin-top:6px">Tendance : <b class="${perW>=0?"c-g":"c-o"}">${perW>=0?"+":""}${fr(perW,2)} kg / semaine</b>${perW>0.05&&cur<target?` · objectif ${target} kg vers le ${new Date(Date.now()+(target-cur)/perW*7*86400000).toLocaleDateString("fr-FR",{day:"numeric",month:"long"})}`:""}</div>`; }
-    body=`<div class="card"><div class="row between"><div><div class="lbl">Actuel</div><div class="big">${cur!=null?fr(cur)+'<span class="unit"> kg</span>':"—"}</div></div><button class="btn g s" data-act="weigh">${ic("plus")}Pesée</button></div>${trend}${lineChart(w.slice(-60),{goal:target,unit:" kg"})}</div>
+    body=`<div class="card"><div class="row between"><div><div class="lbl">Actuel</div><div class="big">${cur!=null?fr(cur)+'<span class="unit"> kg</span>':"—"}</div></div><button class="btn a s" data-act="weigh">${ic("plus")}Pesée</button></div>${trend}${lineChart(w.slice(-60),{goal:target,unit:" kg"})}</div>
     <div class="ghead">Pesées</div><div class="group">${w.slice().reverse().slice(0,30).map(x=>`<div class="cell"><div class="grow">${fmtDay(x.d)}</div><b class="num">${fr(x.y)} kg</b></div>`).join("")||'<div class="empty">Aucune pesée.</div>'}</div>`;
   } else {
     const days=[]; for(let i=13;i>=0;i--){ const k=addDays(today(),-i); days.push({d:k,...dayTotals(k)}); }
@@ -731,7 +737,7 @@ document.getElementById("ov").addEventListener("click",e=>{ if(e.target.id==="ov
 
 function sheetWeigh(){
   const k=ui.tab==="food"?ui.day:today(), w=dayOf(k).weight||(weights().slice(-1)[0]||{}).y||"";
-  sheet(`<h2 style="margin-top:0">Pesée · ${fmtDay(k)}</h2><input id="wIn" inputmode="decimal" value="${w?fr(w):""}" placeholder="ex. 65,4" class="field-big"><div style="height:12px"></div><button class="btn g w" data-act="saveWeight" data-v="${k}">Enregistrer</button>${dayOf(k).weight?`<div style="text-align:center;margin-top:10px"><button class="chip del" data-act="delWeight" data-v="${k}">Supprimer la pesée</button></div>`:""}`);
+  sheet(`<h2 style="margin-top:0">Pesée · ${fmtDay(k)}</h2><input id="wIn" inputmode="decimal" value="${w?fr(w):""}" placeholder="ex. 65,4" class="field-big"><div style="height:12px"></div><button class="btn a w" data-act="saveWeight" data-v="${k}">Enregistrer</button>${dayOf(k).weight?`<div style="text-align:center;margin-top:10px"><button class="chip del" data-act="delWeight" data-v="${k}">Supprimer la pesée</button></div>`:""}`);
   setTimeout(()=>{ const i=document.getElementById("wIn"); i&&i.focus(); i&&i.select(); },80);
 }
 function sheetAddFood(q=""){
@@ -758,7 +764,7 @@ function sheetQty(id){
   <div class="lbl" style="margin-top:14px">${unit?"Nombre ("+esc(plur(2,unit))+")":"Quantité (g)"}</div><input id="qIn" inputmode="decimal" value="${unit?1:w}" class="field-big" style="margin-top:6px">
   <div style="margin-top:10px">${(unit?[0.5,1,2,3,4].map(n=>[n,(n===0.5?"½":n)+" "+plur(n,unit)]):[[50,"50 g"],[100,"100 g"],[150,"150 g"],[200,"200 g"],[250,"250 g"]]).map(([v,l])=>`<button class="chip" data-act="setQ" data-v="${v}">${esc(l)}</button>`).join("")}</div>
   <div class="group"><div class="cell"><div class="grow t">Total</div><b id="qTot" class="num c-g"></b></div></div>
-  <button class="btn g w" data-act="addQty" data-v="${id}">Ajouter</button>
+  <button class="btn a w" data-act="addQty" data-v="${id}">Ajouter</button>
   <div class="row" style="justify-content:center;margin-top:10px"><button class="chip ghost" data-act="editFood" data-v="${id}">Modifier l'aliment</button></div>`);
   const upd=()=>{ const q=num(document.getElementById("qIn").value)||0, g=unit?q*w:q; document.getElementById("qTot").textContent=fr(f.p*g/100,1)+" g prot · "+fr(f.k*g/100,0)+" kcal"; };
   document.getElementById("qIn").addEventListener("input",upd); upd();
@@ -776,7 +782,7 @@ function sheetFoodForm(id,dr){
   <div class="grid2" style="margin-top:10px"><div><div class="lbl">Prot. ${u?`par <span class="unl">${un}</span>`:"/ 100 g"}</div><input id="fp" inputmode="decimal" value="${d.p===""?"":fr(d.p)}"></div><div><div class="lbl">Kcal ${u?`par <span class="unl">${un}</span>`:"/ 100 g"}</div><input id="fk" inputmode="decimal" value="${d.k===""?"":fr(d.k,0)}"></div></div>
   <div class="lbl" style="margin-top:10px">${u?`Poids d'une <span class="unl">${un}</span> en g (facultatif)`:"Portion habituelle (g)"}</div><input id="fpo" inputmode="decimal" value="${d.w||""}">
   <div class="sub" style="margin-top:6px">${u?"Astuce : sur l'étiquette, colonne « par portion » ou « par pièce ».":"Astuce : les valeurs sont sur l'étiquette, colonne « pour 100 g »."}</div>
-  <div style="height:12px"></div><button class="btn g w" data-act="saveFood" data-v="${id||""}">Enregistrer</button>
+  <div style="height:12px"></div><button class="btn a w" data-act="saveFood" data-v="${id||""}">Enregistrer</button>
   ${id?`<div style="text-align:center;margin-top:10px"><button class="chip del" data-act="delFood" data-v="${id}">Supprimer l'aliment</button></div>`:""}`);
   const fu=document.getElementById("fu"); if(fu) fu.addEventListener("input",()=>document.querySelectorAll("#sh .unl").forEach(x=>x.textContent=fu.value.trim()||"unité"));
   ui.fId=id||"";
@@ -798,7 +804,7 @@ function drawRecipe(){
   <select id="ingSel" style="margin-top:8px"><option value="">Ajouter un ingrédient…</option>${Object.entries(foods).sort((a,b)=>a[1].name.localeCompare(b[1].name)).map(([id,f])=>`<option value="${id}">${esc(f.name)}</option>`).join("")}</select>
   <div class="lbl" style="margin-top:12px">Nombre de portions</div><input id="rpo" inputmode="numeric" value="${r.portions||1}">
   <div class="group"><div class="cell"><div class="grow t">Par portion</div><b class="num c-g">${fr(tot.p,1)} g prot · ${fr(tot.k,0)} kcal</b></div></div>
-  <button class="btn g w" data-act="saveRecipe">Enregistrer la recette</button>
+  <button class="btn a w" data-act="saveRecipe">Enregistrer la recette</button>
   ${ui.rDraftId?`<div style="text-align:center;margin-top:10px"><button class="chip del" data-act="delRecipe">Supprimer la recette</button></div>`:""}`);
   document.getElementById("ingSel").addEventListener("change",e=>{ if(!e.target.value) return; readRecipeForm(); const f=foods[e.target.value]; r.items=r.items||[]; r.items.push({f:e.target.value,g:f.portion||100}); drawRecipe(); });
   document.querySelectorAll("[data-ri]").forEach(inp=>inp.addEventListener("change",()=>{ readRecipeForm(); drawRecipe(); }));
@@ -818,7 +824,7 @@ function sheetPickRecipe(id){
   const r=S.recipes[id], t=recipeTotals(r);
   sheet(`<h2 style="margin-top:0">${esc(r.name)}</h2><div class="sub">${fr(t.p,1)} g prot · ${fr(t.k,0)} kcal par portion</div>
   <div class="lbl" style="margin-top:14px">Portions</div><div>${[0.5,1,1.5,2].map(n=>`<button class="chip ${n===1?"on":""}" data-act="recPortion" data-v="${n}">${fr(n)}</button>`).join("")}</div>
-  <button class="btn g w" style="margin-top:12px" data-act="addRecipe" data-v="${id}">Ajouter 1 portion</button>
+  <button class="btn a w" style="margin-top:12px" data-act="addRecipe" data-v="${id}">Ajouter 1 portion</button>
   <div style="text-align:center;margin-top:10px"><button class="chip ghost" data-act="editRecipe" data-v="${id}">Modifier la recette</button></div>`);
   ui.recPortion=1;
 }
@@ -826,7 +832,7 @@ function sheetManual(pre){
   const p=pre||{name:"",p:"",k:""};
   sheet(`<h2 style="margin-top:0">Saisie manuelle</h2><div class="lbl">Quoi ?</div><input id="mn" value="${esc(p.name)}" placeholder="ex. Sandwich jambon">
   <div class="grid2" style="margin-top:10px"><div><div class="lbl">Protéines (g)</div><input id="mp" inputmode="decimal" value="${p.p===""?"":fr(p.p,0)}"></div><div><div class="lbl">Calories</div><input id="mk" inputmode="decimal" value="${p.k===""?"":fr(p.k,0)}"></div></div>
-  <div style="height:12px"></div><button class="btn g w" data-act="addManual">Ajouter</button>`);
+  <div style="height:12px"></div><button class="btn a w" data-act="addManual">Ajouter</button>`);
 }
 
 /* ================= Claude : estimation photo / texte ================= */
@@ -869,7 +875,7 @@ function sheetApiKey(){
   <div class="ghead">Ta clé API</div>
   <div class="group"><div class="cell"><input id="akIn" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="sk-ant-…" value="${esc(k)}" style="width:100%;text-align:left;color:var(--ink);font-family:var(--sans);font-weight:500"></div></div>
   <div class="gfoot">À créer sur console.anthropic.com, rubrique « API keys ». Environ 2 à 3 centimes par repas estimé.</div>
-  <button class="btn g w" data-act="saveKey">Enregistrer la clé</button>
+  <button class="btn a w" data-act="saveKey">Enregistrer la clé</button>
   ${k?`<div class="center" style="margin-top:10px"><button class="chip del" data-act="delKey">Retirer la clé de ce téléphone</button></div>`:""}`);
 }
 async function askClaude(input,images){
@@ -881,7 +887,7 @@ async function askClaude(input,images){
 function sheetAiText(){
   sheet(`<h2 style="margin-top:0" class="row" ><span class="tile o" style="width:30px;height:30px;border-radius:9px">${ic("sparkles")}</span>Décris ton repas</h2><div class="sub">Ex. « 200 g de poulet, une assiette de riz et un skyr » ou « un kebab frites ».</div>
   <textarea id="aiT" rows="4" style="margin-top:12px"></textarea>
-  <div style="height:10px"></div><button class="btn g w" data-act="aiGo">Estimer</button>`);
+  <div style="height:10px"></div><button class="btn a w" data-act="aiGo">Estimer</button>`);
   setTimeout(()=>{ const t=document.getElementById("aiT"); t&&t.focus(); },80);
 }
 async function runAi(input,images){
@@ -895,12 +901,12 @@ async function runAi(input,images){
     <div class="group">${(r.items||[]).map(it=>`<div class="cell"><span class="grow">${esc(it.nom)}${it.grammes?` <span class="sub">${fr(num(it.grammes),0)} g</span>`:""}</span><span class="sub">${fr(num(it.proteines)||0,0)} g · ${fr(num(it.kcal)||0,0)} kcal</span></div>`).join("")}</div>
     <div class="grid2"><div><div class="lbl">Protéines (g)</div><input id="aip" inputmode="decimal" value="${fr(p,0)}"></div><div><div class="lbl">Calories</div><input id="aik" inputmode="decimal" value="${fr(k,0)}"></div></div>
     <div class="sub" style="margin-top:6px">Estimation : corrige si besoin.</div>
-    <div style="height:12px"></div><button class="btn g w" data-act="aiAdd">Ajouter</button>
+    <div style="height:12px"></div><button class="btn a w" data-act="aiAdd">Ajouter</button>
     <button class="btn l w" style="margin-top:8px" data-act="aiAddSave">Ajouter + garder comme recette</button>`);
   }catch(e){
     const M={rate_limited:"Trop de demandes, réessaie dans un moment.",not_granted:"Autorisation refusée pour Claude.",no_key:"Ajoute d'abord ta clé API dans Réglages.",bad_key:"Ta clé API est refusée : vérifie-la dans Réglages.",credit:"Plus de crédit sur ton compte API : recharge-le sur console.anthropic.com.",network:"Pas de connexion internet. Réessaie ou saisis à la main.",busy:"Claude est très sollicité, réessaie dans un moment.",refusal:"Claude n'a pas pu analyser ce repas. Saisis-le à la main."};
     const msg=(e&&M[e.code])||"Estimation impossible. Réessaie ou saisis à la main.";
-    sheet(`<h2 style="margin-top:0">Oups</h2><div class="sub">${msg}</div><div style="height:12px"></div>${e&&(e.code==="no_key"||e.code==="bad_key")?`<button class="btn g w" style="margin-bottom:8px" data-act="apiKey">Ajouter ma clé</button>`:""}<button class="btn l w" data-act="manualMeal">Saisie manuelle</button>`);
+    sheet(`<h2 style="margin-top:0">Oups</h2><div class="sub">${msg}</div><div style="height:12px"></div>${e&&(e.code==="no_key"||e.code==="bad_key")?`<button class="btn a w" style="margin-bottom:8px" data-act="apiKey">Ajouter ma clé</button>`:""}<button class="btn l w" data-act="manualMeal">Saisie manuelle</button>`);
   }
 }
 async function shrink(file){
@@ -920,11 +926,11 @@ function sheetSettings(){
   sheet(`<h2 style="margin-top:0">Réglages</h2>
   <div class="ghead">Objectifs</div>
   <div class="group">${goal("gp","Protéines / jour",c.goals.prot,"g","","bolt","numeric")}${goal("gk","Calories / jour",c.goals.kcal,"kcal","o","flame","numeric")}${goal("gw1","Poids étape 1",fr(c.goals.w1),"kg","k","scale","decimal")}${goal("gw2","Poids final",fr(c.goals.w2),"kg","k","trophy","decimal")}${goal("gwk","Séances / semaine",c.goals.week,"","","dumbbell","numeric")}</div>
-  <button class="btn g w" data-act="saveGoals">Enregistrer les objectifs</button>
+  <button class="btn a w" data-act="saveGoals">Enregistrer les objectifs</button>
   <div class="ghead">Séances types</div>
-  <div class="group">${c.templates.map(t=>`<div class="cell" data-act="editTpl" data-v="${t.id}"><div class="grow t">${esc(t.name)}</div><span class="sub">${t.ex.length} exercices</span>${CHEV}</div>`).join("")}<div class="cell" data-act="editTpl" data-v=""><div class="grow t c-g">Nouvelle séance type</div><span class="c-g">${ic("plus")}</span></div></div>
+  <div class="group">${c.templates.map(t=>`<div class="cell" data-act="editTpl" data-v="${t.id}"><div class="grow t">${esc(t.name)}</div><span class="sub">${t.ex.length} exercices</span>${CHEV}</div>`).join("")}<div class="cell" data-act="editTpl" data-v=""><div class="grow t c-a">Nouvelle séance type</div><span class="c-a">${ic("plus")}</span></div></div>
   <div class="ghead">Exercices</div>
-  <div class="group">${c.exercises.map(e=>`<div class="cell" data-act="editEx" data-v="${e.id}"><div class="grow t">${esc(e.name)}</div><span class="sub num">${e.target} reps · +${fr(e.inc)} kg</span>${CHEV}</div>`).join("")}<div class="cell" data-act="editEx" data-v=""><div class="grow t c-g">Nouvel exercice</div><span class="c-g">${ic("plus")}</span></div></div>
+  <div class="group">${c.exercises.map(e=>`<div class="cell" data-act="editEx" data-v="${e.id}"><div class="grow t">${esc(e.name)}</div><span class="sub num">${e.target} reps · +${fr(e.inc)} kg</span>${CHEV}</div>`).join("")}<div class="cell" data-act="editEx" data-v=""><div class="grow t c-a">Nouvel exercice</div><span class="c-a">${ic("plus")}</span></div></div>
   <div class="gfoot">Reps visées et palier d'augmentation servent à la suggestion de charge.</div>
   ${sampler?"":`<div class="ghead">Estimation des repas</div><div class="group"><div class="cell ind" data-act="apiKey"><div class="tile o">${ic("sparkles")}</div><div class="grow t">Clé API Claude</div><span class="sub">${apiKey()?"Enregistrée":"À ajouter"}</span>${CHEV}</div></div>`}
   ${installCell()}
@@ -957,7 +963,7 @@ async function saveFile(filename,data,mime){
   if(!(window.claude&&window.claude.use)){ try{ const u=URL.createObjectURL(new Blob([data],{type:mime})), a=document.createElement("a"); a.href=u; a.download=filename; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(u),5000); return "ok"; }catch(e){} }
   return "fail";
 }
-function copySheet(title,data){ sheet(`<h2 style="margin-top:0">${esc(title)}</h2><div class="sub">Le téléchargement n'est pas possible ici : copie ce texte et colle-le dans un fichier ou une note.</div><textarea id="cpT" rows="9" style="margin-top:12px;font:12px ui-monospace,monospace">${esc(data)}</textarea><button class="btn g w" style="margin-top:10px" data-act="copyTxt">Copier</button>`); }
+function copySheet(title,data){ sheet(`<h2 style="margin-top:0">${esc(title)}</h2><div class="sub">Le téléchargement n'est pas possible ici : copie ce texte et colle-le dans un fichier ou une note.</div><textarea id="cpT" rows="9" style="margin-top:12px;font:12px ui-monospace,monospace">${esc(data)}</textarea><button class="btn a w" style="margin-top:10px" data-act="copyTxt">Copier</button>`); }
 function sheetExport(){
   const ns=sessionsSorted().filter(s=>s.done).length, nw=weights().length, nm=Object.values(S.days).reduce((a,d)=>a+(d.meals||[]).length,0);
   const cnt={seances:ns+" séance"+(ns>1?"s":""),poids:nw+" pesée"+(nw>1?"s":""),repas:nm+" ajout"+(nm>1?"s":""),jours:Object.keys(S.days).length+" jours"};
@@ -973,13 +979,13 @@ function sheetTpl(id){
   ui.tplDraft=clone(t);
   sheet(`<h2 style="margin-top:0">${id?"Modifier":"Nouvelle"} séance type</h2><div class="lbl">Nom</div><input id="tn" value="${esc(t.name)}">
   <div class="lbl" style="margin-top:12px">Exercices (dans l'ordre où tu les coches)</div><div style="margin-top:8px">${c.exercises.map(e=>`<button class="chip ${t.ex.includes(e.id)?"on":""}" data-act="tplToggle" data-v="${e.id}">${t.ex.includes(e.id)?(t.ex.indexOf(e.id)+1)+". ":""}${esc(e.name)}</button>`).join("")}</div>
-  <button class="btn g w" style="margin-top:10px" data-act="saveTpl">Enregistrer</button>${id?`<div style="text-align:center;margin-top:10px"><button class="chip del" data-act="delTpl">Supprimer</button></div>`:""}`);
+  <button class="btn a w" style="margin-top:10px" data-act="saveTpl">Enregistrer</button>${id?`<div style="text-align:center;margin-top:10px"><button class="chip del" data-act="delTpl">Supprimer</button></div>`:""}`);
 }
 function sheetEx(id){
   const e=id?exById(id):{id:"",name:"",target:10,inc:2.5};
   sheet(`<h2 style="margin-top:0">${id?"Modifier":"Nouvel"} exercice</h2><div class="lbl">Nom</div><input id="en" value="${esc(e.name)}" placeholder="ex. Pec deck">
   <div class="grid2" style="margin-top:10px"><div><div class="lbl">Reps visées</div><input id="et" inputmode="numeric" value="${e.target}"></div><div><div class="lbl">Palier (kg)</div><input id="ei" inputmode="decimal" value="${fr(e.inc)}"></div></div>
-  <button class="btn g w" style="margin-top:12px" data-act="saveEx" data-v="${id||""}">Enregistrer</button>`);
+  <button class="btn a w" style="margin-top:12px" data-act="saveEx" data-v="${id||""}">Enregistrer</button>`);
 }
 function sheetPickEx(){
   const s=activeSession(), inS=new Set((s.ex||[]).map(e=>e.id));
@@ -991,7 +997,7 @@ function sheetViewSession(id){
   <div style="text-align:center"><button class="chip del" data-act="delSession" data-v="${id}">Supprimer cette séance</button></div>`);
 }
 function sheetImport(){
-  sheet(`<h2 style="margin-top:0">Importer une sauvegarde</h2><div class="sub">Colle le contenu exporté. Les données importées s'ajoutent à l'existant (même jour = remplacé).</div><textarea id="impT" rows="6" style="margin-top:12px;font:13px ui-monospace,monospace"></textarea><input type="file" id="impF" accept=".json,application/json" style="margin-top:8px;font-size:14px"><button class="btn g w" style="margin-top:10px" data-act="doImport">Importer</button>`);
+  sheet(`<h2 style="margin-top:0">Importer une sauvegarde</h2><div class="sub">Colle le contenu exporté. Les données importées s'ajoutent à l'existant (même jour = remplacé).</div><textarea id="impT" rows="6" style="margin-top:12px;font:13px ui-monospace,monospace"></textarea><input type="file" id="impF" accept=".json,application/json" style="margin-top:8px;font-size:14px"><button class="btn a w" style="margin-top:10px" data-act="doImport">Importer</button>`);
   document.getElementById("impF").addEventListener("change",async e=>{ const f=e.target.files[0]; if(f) document.getElementById("impT").value=await f.text(); });
 }
 
@@ -1087,7 +1093,7 @@ const A={
 function sheetTplRedraw(t){ const c=cfg(); const keepId=t.id; ui.tplDraft=t; const html=document.getElementById("sh");
   sheet(`<h2 style="margin-top:0">${keepId?"Modifier":"Nouvelle"} séance type</h2><div class="lbl">Nom</div><input id="tn" value="${esc(t.name)}">
   <div class="lbl" style="margin-top:12px">Exercices (dans l'ordre où tu les coches)</div><div style="margin-top:8px">${c.exercises.map(e=>`<button class="chip ${t.ex.includes(e.id)?"on":""}" data-act="tplToggle" data-v="${e.id}">${t.ex.includes(e.id)?(t.ex.indexOf(e.id)+1)+". ":""}${esc(e.name)}</button>`).join("")}</div>
-  <button class="btn g w" style="margin-top:10px" data-act="saveTpl">Enregistrer</button>${keepId?`<div style="text-align:center;margin-top:10px"><button class="chip del" data-act="delTpl">Supprimer</button></div>`:""}`); }
+  <button class="btn a w" style="margin-top:10px" data-act="saveTpl">Enregistrer</button>${keepId?`<div style="text-align:center;margin-top:10px"><button class="chip del" data-act="delTpl">Supprimer</button></div>`:""}`); }
 
 document.addEventListener("click",e=>{
   const el=e.target.closest("[data-act]"); if(!el||el.disabled) return;
@@ -1101,7 +1107,7 @@ document.getElementById("app").addEventListener("change",e=>{
 });
 document.getElementById("app").addEventListener("focusout",()=>{ if(renderWanted) setTimeout(()=>{ if(renderWanted) softRender(); },50); });
 document.getElementById("app").addEventListener("focusin",e=>{ const t=e.target; if(t.tagName!=="INPUT") return; const v0=t.value; setTimeout(()=>{ try{ if(t.value===v0&&document.activeElement===t) t.select(); }catch(_){} },0); });
-document.addEventListener("keydown",e=>{ if(e.key==="Enter"&&e.target.tagName==="INPUT"){ const b=document.querySelector("#sh .btn.g"); if(b&&document.getElementById("ov").classList.contains("vis")&&e.target.id!=="fq"){ b.click(); } else e.target.blur(); } });
+document.addEventListener("keydown",e=>{ if(e.key==="Enter"&&e.target.tagName==="INPUT"){ const b=document.querySelector("#sh .btn.a"); if(b&&document.getElementById("ov").classList.contains("vis")&&e.target.id!=="fq"){ b.click(); } else e.target.blur(); } });
 /* changement de jour quand l'appli reste ouverte */
 document.addEventListener("visibilitychange",()=>{ if(!document.hidden){ if(ui.day>today()) ui.day=today(); render(); } });
 
@@ -1173,7 +1179,7 @@ function installCard(){
   const st=installState(); if((st!=="prompt"&&st!=="ios")||installHidden()) return "";
   return `<div class="card" style="display:flex;align-items:center;gap:12px;padding:14px 12px 14px 14px"><div class="tile">${ic("download")}</div>
     <div style="flex:1;min-width:0"><div style="font-weight:700">Installer l'appli</div><div class="sub" style="font-size:13.5px">Plein écran, hors-ligne, ouverte en 1 tap.</div></div>
-    <button class="btn g s" data-act="install">Installer</button><button class="icb" data-act="installHide" aria-label="Masquer">${ic("close")}</button></div>`;
+    <button class="btn a s" data-act="install">Installer</button><button class="icb" data-act="installHide" aria-label="Masquer">${ic("close")}</button></div>`;
 }
 function installCell(){
   const st=installState(); if(st==="none") return "";
@@ -1187,7 +1193,7 @@ function sheetInstallIOS(){
     <div class="cell ind"><div class="tile">${ic("plus")}</div><div class="grow"><div class="t">2. « Sur l'écran d'accueil »</div><div class="sub">Fais défiler la liste si besoin.</div></div></div>
     <div class="cell ind"><div class="tile o">${ic("check")}</div><div class="grow"><div class="t">3. Touche « Ajouter »</div><div class="sub">L'icône apparaît sur ton écran d'accueil.</div></div></div>
   </div>
-  <button class="btn g w" data-act="installHide">J'ai compris</button>`);
+  <button class="btn a w" data-act="installHide">J'ai compris</button>`);
 }
 async function doInstall(){
   if(PWA.evt){ const e=PWA.evt; PWA.evt=null; try{ await e.prompt(); const r=await e.userChoice; if(r&&r.outcome==="accepted") toast("Appli installée"); }catch(_){} render(); return; }

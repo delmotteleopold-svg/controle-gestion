@@ -68,9 +68,9 @@ Ce que le test vérifie (Chromium, Pixel 7 et iPhone 15 Pro simulés) : reprise 
 
 Résultats au 22/11/2026 : tous les tests passent. Replis vérifiés aussi : sans `manifest.json` (comme sur claude.ai) l'appli marche sans PWA ; sans IndexedDB elle repasse sur `localStorage`.
 
-**Lighthouse (mobile)** : Performance 100 · Accessibilité 88 · Bonnes pratiques 100 · SEO 100 (affichage complet en 1,6 s).
+**Lighthouse (mobile)** : Performance 100 · Accessibilité 93 · Bonnes pratiques 100 · SEO 100 (affichage complet en 1,6 s).
 - Note : Google a retiré la catégorie « PWA » de Lighthouse en 2024 (version 12). L'installabilité est donc vérifiée par le test ci-dessus (même contrôle que Chrome).
-- Accessibilité 88 : le gris des textes secondaires (`--mute` `#8D8679` sur blanc) a un contraste de 3,6 (minimum recommandé 4,5). Choix de design à trancher.
+- Contrastes corrigés avec le système de couleurs à 3 rôles (voir `BRIEF.md` › Système de couleurs). Seul point restant : le zoom bloqué (ci-dessous), voulu.
 - `maximum-scale=1` est gardé exprès : sans lui, iPhone zoome à chaque saisie de charge.
 - « Compression du texte » : assurée automatiquement par Cloudflare Pages / Netlify (pas par le serveur de test).
 
@@ -98,6 +98,7 @@ Mise en ligne sur Cloudflare Pages (une seule fois, environ 5 minutes) :
 | Étape | Contenu | État |
 |---|---|---|
 | 1–4 | PWA : manifest, icônes, hors-ligne, installation, IndexedDB | ✅ fait et testé |
+| — | Système de couleurs : vert + orange = données, violet = actions | ✅ fait et testé |
 | 5 | Backend + comptes (Supabase) : connexion, synchronisation multi-appareils | à faire |
 | 6 | **Progression** enrichie (priorité n°1) | à faire |
 | 7 | **Amis** : ajouter un ami, voir un résumé de sa progression, réagir | à faire (après 5) |
