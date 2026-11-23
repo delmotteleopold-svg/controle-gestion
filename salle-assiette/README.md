@@ -99,7 +99,8 @@ Mise en ligne sur Cloudflare Pages (une seule fois, environ 5 minutes) :
 |---|---|---|
 | 1–4 | PWA : manifest, icônes, hors-ligne, installation, IndexedDB | ✅ fait et testé |
 | — | Système de couleurs : vert + orange = données, violet = actions | ✅ fait et testé |
-| 5 | Backend + comptes (Supabase) : connexion, synchronisation multi-appareils | à faire |
+| 5a | Backend Supabase : tables, règles d'accès, tests de sécurité (voir [`supabase/README.md`](supabase/README.md)) | ✅ fait et testé |
+| 5b | Dans l'appli : connexion par code, synchronisation multi-appareils | à faire |
 | 6 | **Progression** enrichie (priorité n°1) | à faire |
 | 7 | **Amis** : ajouter un ami, voir un résumé de sa progression, réagir | à faire (après 5) |
 | 8 | **Rappels** (notifications Web Push) | à faire (après 5) |
